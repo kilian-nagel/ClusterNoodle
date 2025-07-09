@@ -1,0 +1,21 @@
+
+services:
+  web:
+    image: nginx
+    deploy:
+      replicas: 10
+      update_config:
+        parallelism: 2
+        delay: 10s
+    ports:
+      - "80:80"
+  db:
+    image: postgres
+    environment:
+      POSTGRES_PASSWORD: admin
+
+networks:
+  net: 
+
+volumes:
+  db_data:
