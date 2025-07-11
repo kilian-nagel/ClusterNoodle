@@ -40,9 +40,7 @@ fn main() {
     let mut nodes_configs: Vec<config::NodeConfig> = vec![];
 
     for node_ip in nodes_ips {
-        println!("node_ip : {}", node_ip);
         let data = node_ip.split(",").collect::<Vec<_>>();
-        println!("length : {}", data.len());
         if data.len() > 2 {
             let node_config = config::NodeConfig {
                 ip: data[0].to_string(),
@@ -72,6 +70,5 @@ fn main() {
         ssh::generate_ssh_key();
     }
 
-    println!("bfr copy ssh key");
     ssh::copy_ssh_key_to_machines(&config);
 }
