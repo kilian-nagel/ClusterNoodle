@@ -1,7 +1,8 @@
 use crate::config;
-use std::fs;
+use crate::utils::command;
 use std::path::PathBuf;
 use std::process::Command;
+use std::time::Duration;
 
 pub fn generate_ssh_key() {
     // Resolve ~/.ssh path
@@ -41,17 +42,27 @@ pub fn check_existing_ssh_key() -> bool {
 pub fn copy_ssh_key_to_machines(config: &config::ClusterConfig) {
     for node_config in &config.nodes_configs {
         let target = format!("{}@{}", node_config.username, node_config.ip);
-        let output = Command::new("ssh-copy-id")
-            .arg(&target)
-            .output()
-            .expect(&format!("Failed to execute ssh-copy-id for : {}", target));
 
-        if !output.status.success() {
-            println!(
-                "Failed to execute ssh-copy-id for {}: {}",
-                target,
-                String::from_utf8_lossy(&output.stderr)
-            );
+        let mut cmd = Command::new("ssh-copy-id");
+        cmd.arg(&target);
+
+        match command::run_with_timeout(cmd, Duration::from_secs(5)) {
+            Ok(Some(output)) => {
+                if output.status.success() {
+                    println!("Success!");
+                } else {
+                    println!(
+                        "ssh-copy-id failed: {}",
+                        String::from_utf8_lossy(&output.stderr)
+                    );
+                }
+            }
+            Ok(None) => {
+                println!("ssh-copy-id timed out after 5 seconds for {}", target);
+            }
+            Err(e) => {
+                println!("Failed to execute: {}", e);
+            }
         }
     }
 }
