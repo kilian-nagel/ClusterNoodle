@@ -66,3 +66,39 @@ pub fn copy_ssh_key_to_machines(config: &config::ClusterConfig) {
         }
     }
 }
+
+pub fn join_cluster(config: &config::ClusterConfig) {
+    for node_config in &config.nodes_configs {
+        let target = format!("{}@{}", node_config.username, node_config.ip);
+        let remote_cmd = "\"echo 'a' > a.txt\"";
+
+        let mut cmd = Command::new("sshpass");
+        cmd.arg("-p")
+            .arg(&node_config.password)
+            .arg("ssh")
+            .arg("-o")
+            .arg("StrictHostKeyChecking=no")
+            .arg(&target)
+            .arg(format!(
+                "echo {} | sudo -S apt-get update -y && echo {} | sudo -S apt-get install -y docker.io",
+                node_config.password,
+                node_config.password
+            ));
+
+        match command::run_with_timeout(cmd, Duration::from_secs(1000)) {
+            Ok(Some(output)) => {
+                if output.status.success() {
+                    println!("Docker installed on {}", target);
+                } else {
+                    println!(
+                        "Install failed on {}: {}",
+                        target,
+                        String::from_utf8_lossy(&output.stderr)
+                    );
+                }
+            }
+            Ok(None) => println!("Timeout for {}", target),
+            Err(e) => println!("Execution failed on {}: {}", target, e),
+        }
+    }
+}

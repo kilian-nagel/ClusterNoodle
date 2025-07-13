@@ -25,4 +25,5 @@ pub fn build_cluster_nodes_objects(input: &str) -> Vec<NodeConfig> {
 pub struct ClusterConfig {
     pub nodes_number: u16,
     pub nodes_configs: Vec<NodeConfig>,
+    pub cluster_docker_command: String,
 }

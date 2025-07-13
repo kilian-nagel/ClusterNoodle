@@ -20,18 +20,20 @@ fn main() {
     let nodes_number = cluster::ask_nodes_number();
     let nodes_configs = cluster::ask_nodes_infos();
 
-    let config = config::ClusterConfig {
+    let mut config = config::ClusterConfig {
         nodes_number: nodes_number,
         nodes_configs: nodes_configs,
+        cluster_docker_command: String::from(""),
     };
 
     println!("Deploying cluster...");
 
     if cluster::check_existing_cluster() {
+        cluster::leave_cluster(&config);
         cluster::destroy_cluster();
     }
 
-    cluster::init_cluster();
+    cluster::init_cluster(&mut config);
     services::create_docker_config_file(&config);
 
     if !ssh::check_existing_ssh_key() {
@@ -39,4 +41,6 @@ fn main() {
     }
 
     ssh::copy_ssh_key_to_machines(&config);
+    cluster::install_docker(&config);
+    cluster::join_cluster(&config);
 }
