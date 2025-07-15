@@ -1,5 +1,5 @@
-use crate::config;
-use crate::config::ClusterConfig;
+use crate::config::config;
+use crate::config::config::ClusterConfig;
 use crate::utils::command;
 use std::io;
 use std::process::Command;
@@ -12,7 +12,7 @@ pub fn check_existing_cluster() -> bool {
         .output()
         .unwrap();
 
-    let output_str = String::from_utf8_lossy(&output.stdout);
+    let output_str = String::from_utf8_lossy(&output.stderr);
     if output_str.contains("Error response from daemon") {
         return false;
     }
@@ -60,36 +60,6 @@ pub fn destroy_cluster() -> () {
         eprintln!("Error:");
         eprintln!("{}", String::from_utf8_lossy(&output.stderr));
     }
-}
-
-pub fn ask_nodes_number() -> u16 {
-    println!("How many nodes would like you deploy ?");
-    let mut nodes_number_input = String::new();
-
-    io::stdin().read_line(&mut nodes_number_input).unwrap();
-    // On se débarasse du \n.
-    nodes_number_input.pop();
-
-    // Convertit l'input de l'utilisateur en entier.
-    let nodes_number_input_result = nodes_number_input.parse::<u16>();
-    if !nodes_number_input_result.is_ok() {
-        panic!("Number of nodes has to be a number");
-    }
-
-    return nodes_number_input_result.unwrap();
-}
-
-pub fn ask_nodes_infos() -> Vec<config::NodeConfig> {
-    println!(
-        "Provide servers as: <ip>,<username>,<password>. Example: 192.168.1.1,username,password 192.168.1.2,username2,password2"
-    );
-    let mut nodes_ips_input = String::new();
-
-    io::stdin().read_line(&mut nodes_ips_input).unwrap();
-    // On se débarasse du \n.
-    nodes_ips_input.pop();
-
-    return config::build_cluster_nodes_objects(&nodes_ips_input);
 }
 
 pub fn install_docker(config: &config::ClusterConfig) {
@@ -182,5 +152,34 @@ pub fn leave_cluster(config: &config::ClusterConfig) {
             Ok(None) => println!("Timeout for execution of {} on : {}", command, target),
             Err(e) => println!("Execution of {} failed on {} : {}", command, target, e),
         }
+    }
+}
+
+pub fn deploy_services(config: &config::ClusterConfig) {
+    let mut cmd = Command::new("docker");
+    cmd.arg("stack")
+        .arg("deploy")
+        .arg("-c")
+        .arg("config.yaml")
+        .arg("server");
+
+    match command::run_with_timeout(cmd, Duration::from_secs(1000)) {
+        Ok(Some(output)) => {
+            if output.status.success() {
+                println!("Services deployed.");
+            } else {
+                println!(
+                    "Failed to deploy services : {}",
+                    String::from_utf8_lossy(&output.stderr)
+                );
+            }
+        }
+        Ok(None) => {
+            println!("Timeout for execution of 'docker stack deploy -c config.yaml server' ")
+        }
+        Err(e) => println!(
+            "Execution of 'docker stack deploy -c config.yaml server' failed: {}",
+            e
+        ),
     }
 }

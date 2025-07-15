@@ -1,4 +1,4 @@
-use crate::config;
+use crate::config::config;
 use std::fs::File;
 use std::io::Write;
 

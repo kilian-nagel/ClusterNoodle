@@ -1,15 +1,20 @@
+use std::fs;
+
 pub struct NodeConfig {
     pub ip: String,
     pub username: String,
     pub password: String,
 }
 
-pub fn build_cluster_nodes_objects(input: &str) -> Vec<NodeConfig> {
-    let nodes_ips = input.split(" ");
+pub fn build_cluster_nodes_objects(file_path: &str) -> Vec<NodeConfig> {
+    let contents = fs::read_to_string(file_path)
+        .expect("Failed to read config file (conf.cluster_noodle). \n");
+
+    let lines: Vec<&str> = contents.lines().collect();
     let mut nodes_configs: Vec<NodeConfig> = vec![];
 
-    for node_ip in nodes_ips {
-        let data = node_ip.split(",").collect::<Vec<_>>();
+    for line in lines {
+        let data: Vec<&str> = line.split(",").collect::<Vec<&str>>();
         if data.len() > 2 {
             let node_config = NodeConfig {
                 ip: data[0].to_string(),
@@ -19,6 +24,7 @@ pub fn build_cluster_nodes_objects(input: &str) -> Vec<NodeConfig> {
             nodes_configs.push(node_config);
         }
     }
+
     return nodes_configs;
 }
 

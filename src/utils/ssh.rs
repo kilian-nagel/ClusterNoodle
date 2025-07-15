@@ -1,4 +1,4 @@
-use crate::config;
+use crate::config::config;
 use crate::utils::command;
 use std::path::PathBuf;
 use std::process::Command;
