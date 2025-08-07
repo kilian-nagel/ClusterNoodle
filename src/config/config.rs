@@ -6,6 +6,19 @@ pub struct NodeConfig {
     pub password: String,
 }
 
+pub enum Service {
+    Server,
+    Database,
+    Traefik,
+}
+
+pub struct ClusterConfig {
+    pub nodes_number: u16,
+    pub nodes_configs: Vec<NodeConfig>,
+    pub cluster_docker_command: String,
+    pub services: Vec<Service>,
+}
+
 pub fn build_cluster_nodes_objects(file_path: &str) -> Vec<NodeConfig> {
     let contents = fs::read_to_string(file_path)
         .expect("Failed to read config file (conf.cluster_noodle). \n");
@@ -26,10 +39,4 @@ pub fn build_cluster_nodes_objects(file_path: &str) -> Vec<NodeConfig> {
     }
 
     return nodes_configs;
-}
-
-pub struct ClusterConfig {
-    pub nodes_number: u16,
-    pub nodes_configs: Vec<NodeConfig>,
-    pub cluster_docker_command: String,
 }
