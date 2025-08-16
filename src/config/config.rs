@@ -6,6 +6,7 @@ pub struct NodeConfig {
     pub password: String,
 }
 
+#[derive(PartialEq)]
 pub enum Service {
     Server,
     Database,
