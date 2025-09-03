@@ -7,11 +7,18 @@ mod utils {
     pub mod ssh;
 }
 
+mod services {
+    pub mod services;
+}
+
 mod config {
     pub mod config;
 }
 
-use crate::config::config::{ClusterConfig, Service, build_cluster_nodes_objects};
+use crate::config::config::{ClusterConfig, build_cluster_nodes_objects};
+use crate::services::services::{
+    DatabaseType, ServerType, Service, create_docker_file, generate_docker_compose,
+};
 use clap::{Args, Parser, Subcommand};
 use docker::cluster;
 use std::path::PathBuf;
@@ -45,13 +52,12 @@ enum Commands {
 }
 
 #[derive(Args)]
-#[group(required = true, multiple = true)]
 struct Services {
-    #[arg(long)]
-    server: bool,
+    #[arg(long, value_enum)]
+    server: Option<ServerType>,
 
-    #[arg(long)]
-    database: bool,
+    #[arg(long, value_enum)]
+    database: Option<DatabaseType>,
 
     #[arg(long)]
     traefik: bool,
@@ -74,18 +80,6 @@ fn main() {
                 return;
             }
 
-            // Sélection des services à déployer
-            let mut services_config = vec![];
-            if services.server {
-                services_config.push(Service::Server);
-            };
-            if services.database {
-                services_config.push(Service::Database);
-            };
-            if services.traefik {
-                services_config.push(Service::Traefik);
-            };
-
             // On récupère la configuration des nodes du cluster dans le fichier
             // conf.cluster_noodle.
             let nodes_configs = build_cluster_nodes_objects("conf.cluster_noodle");
@@ -97,11 +91,26 @@ fn main() {
                 nodes_number: *nodes_number,
                 nodes_configs: nodes_configs,
                 cluster_docker_command: String::from(""),
-                services: services_config,
+                services: crate::services::services::Services {
+                    server: services.server.clone(),
+                    database: services.database.clone(),
+                    traefik: services.traefik.clone(),
+                },
             };
 
             // On met à jour le fichier de config en fonction des services sélectionnées
-            config.update_docker_config_file();
+            let docker_file_content = generate_docker_compose(&config);
+            match docker_file_content {
+                Ok(docker_file_content) => {
+                    if let Err(err) = create_docker_file(&docker_file_content) {
+                        println!("Erreur lors de la génération du fichier docker file.");
+                    }
+                }
+                Err(e) => println!(
+                    "Erreur lors de la génération du fichier docker compose: {:?}",
+                    e
+                ), // No need to return anything, just handle the error here.
+            }
 
             // Init le cluster
             config.init();
@@ -126,7 +135,11 @@ fn main() {
                 nodes_number: 0,
                 nodes_configs: build_cluster_nodes_objects("conf.cluster_noodle"),
                 cluster_docker_command: String::from(""),
-                services: vec![],
+                services: services::services::Services {
+                    database: None,
+                    server: None,
+                    traefik: false,
+                },
             };
 
             println!("Stopping the cluster...");

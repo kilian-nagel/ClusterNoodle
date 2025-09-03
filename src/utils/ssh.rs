@@ -1,7 +1,8 @@
 use crate::config::config;
+use crate::config::config::NodeConfig;
 use crate::utils::command;
 use std::path::PathBuf;
-use std::process::Command;
+use std::process::{Command, exit};
 use std::time::Duration;
 
 pub fn generate_ssh_key() {
@@ -67,37 +68,128 @@ pub fn copy_ssh_key_to_machines(config: &config::ClusterConfig) {
     }
 }
 
+fn check_and_install_tools(node_config: &NodeConfig) {
+    let target = format!("{}@{}", node_config.username, node_config.ip);
+
+    // Check if Docker is installed
+    let mut docker_check = Command::new("sshpass");
+    docker_check
+        .arg("-p")
+        .arg(&node_config.password)
+        .arg("ssh")
+        .arg("-o")
+        .arg("StrictHostKeyChecking=no")
+        .arg(&target)
+        .arg("command -v docker");
+
+    // Run command to check if docker is installed
+    match command::run_with_timeout(docker_check, Duration::from_secs(100)) {
+        Ok(Some(output)) => {
+            if output.status.success() {
+                println!("Docker is already installed on {}", target);
+            } else {
+                println!("Docker is not installed on {}. Installing...", target);
+                install_docker(node_config, &target);
+            }
+        }
+        Ok(None) => println!("Timeout while checking Docker installation on {}", target),
+        Err(e) => {
+            println!("Error checking Docker installation on {}: {}", target, e);
+            install_docker(node_config, &target);
+        }
+    }
+
+    // Check if sshpass is installed
+    let mut sshpass_check = Command::new("sshpass");
+    sshpass_check
+        .arg("-p")
+        .arg(&node_config.password)
+        .arg("ssh")
+        .arg("-o")
+        .arg("StrictHostKeyChecking=no")
+        .arg(&target)
+        .arg("command -v sshpass");
+
+    // Run command to check if sshpass is installed
+    match command::run_with_timeout(sshpass_check, Duration::from_secs(100)) {
+        Ok(Some(output)) => {
+            if output.status.success() {
+                println!("sshpass is already installed on {}", target);
+            } else {
+                println!("sshpass is not installed on {}. Installing...", target);
+                install_sshpass(node_config, &target);
+            }
+        }
+        Ok(None) => println!("Timeout while checking sshpass installation on {}", target),
+        Err(e) => {
+            println!("Error checking sshpass installation on {}: {}", target, e);
+            install_sshpass(node_config, &target);
+        }
+    }
+}
+
+fn install_docker(node_config: &NodeConfig, target: &str) {
+    let mut cmd = Command::new("sshpass");
+    cmd.arg("-p")
+        .arg(&node_config.password)
+        .arg("ssh")
+        .arg("-o")
+        .arg("StrictHostKeyChecking=no")
+        .arg(target)
+        .arg(format!(
+            "echo {} | sudo -S apt-get update -y && echo {} | sudo -S apt-get install -y docker.io",
+            node_config.password, node_config.password
+        ));
+
+    match command::run_with_timeout(cmd, Duration::from_secs(1000)) {
+        Ok(Some(output)) => {
+            if output.status.success() {
+                println!("Docker installed on {}", target);
+            } else {
+                println!(
+                    "Docker installation failed on {}: {}",
+                    target,
+                    String::from_utf8_lossy(&output.stderr)
+                );
+            }
+        }
+        Ok(None) => println!("Timeout during Docker installation on {}", target),
+        Err(e) => println!("Docker installation failed on {}: {}", target, e),
+    }
+}
+
+fn install_sshpass(node_config: &NodeConfig, target: &str) {
+    let mut cmd = Command::new("sshpass");
+    cmd.arg("-p")
+        .arg(&node_config.password)
+        .arg("ssh")
+        .arg("-o")
+        .arg("StrictHostKeyChecking=no")
+        .arg(target)
+        .arg(format!(
+            "echo {} | sudo -S apt-get update -y && echo {} | sudo -S apt-get install -y sshpass",
+            node_config.password, node_config.password
+        ));
+
+    match command::run_with_timeout(cmd, Duration::from_secs(1000)) {
+        Ok(Some(output)) => {
+            if output.status.success() {
+                println!("sshpass installed on {}", target);
+            } else {
+                println!(
+                    "sshpass installation failed on {}: {}",
+                    target,
+                    String::from_utf8_lossy(&output.stderr)
+                );
+            }
+        }
+        Ok(None) => println!("Timeout during sshpass installation on {}", target),
+        Err(e) => println!("sshpass installation failed on {}: {}", target, e),
+    }
+}
+
 pub fn join_cluster(config: &config::ClusterConfig) {
     for node_config in &config.nodes_configs {
-        let target = format!("{}@{}", node_config.username, node_config.ip);
-
-        let mut cmd = Command::new("sshpass");
-        cmd.arg("-p")
-            .arg(&node_config.password)
-            .arg("ssh")
-            .arg("-o")
-            .arg("StrictHostKeyChecking=no")
-            .arg(&target)
-            .arg(format!(
-                "echo {} | sudo -S apt-get update -y && echo {} | sudo -S apt-get install -y docker.io",
-                node_config.password,
-                node_config.password
-            ));
-
-        match command::run_with_timeout(cmd, Duration::from_secs(1000)) {
-            Ok(Some(output)) => {
-                if output.status.success() {
-                    println!("Docker installed on {}", target);
-                } else {
-                    println!(
-                        "Install failed on {}: {}",
-                        target,
-                        String::from_utf8_lossy(&output.stderr)
-                    );
-                }
-            }
-            Ok(None) => println!("Timeout for {}", target),
-            Err(e) => println!("Execution failed on {}: {}", target, e),
-        }
+        check_and_install_tools(node_config);
     }
 }

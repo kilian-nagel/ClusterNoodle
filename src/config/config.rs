@@ -1,3 +1,4 @@
+use crate::services::services::Services;
 use std::fs;
 
 pub struct NodeConfig {
@@ -6,18 +7,11 @@ pub struct NodeConfig {
     pub password: String,
 }
 
-#[derive(PartialEq)]
-pub enum Service {
-    Server,
-    Database,
-    Traefik,
-}
-
 pub struct ClusterConfig {
     pub nodes_number: u16,
     pub nodes_configs: Vec<NodeConfig>,
     pub cluster_docker_command: String,
-    pub services: Vec<Service>,
+    pub services: Services,
 }
 
 pub fn build_cluster_nodes_objects(file_path: &str) -> Vec<NodeConfig> {
