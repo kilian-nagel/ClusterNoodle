@@ -1,10 +1,12 @@
 use crate::ClusterConfig;
 use clap::ValueEnum;
 use serde::{Deserialize, Serialize};
+use serde_yaml::{Value, to_string};
+use std::collections::BTreeMap;
 use std::collections::HashMap;
 use std::fs;
 use std::io;
-use std::path::PathBuf; // Re-export at module level
+use std::path::PathBuf;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Service {
@@ -63,13 +65,12 @@ struct DockerCompose {
 pub fn generate_docker_compose(
     cluster_config: &ClusterConfig,
 ) -> Result<String, Box<dyn std::error::Error>> {
+    let mut volumes: HashMap<String, serde_yaml::Value> = HashMap::new();
     let mut compose = DockerCompose {
         version: "3.9".to_string(),
         services: HashMap::new(),
         volumes: None,
     };
-
-    let mut volumes = HashMap::new();
 
     if cluster_config.services.traefik {
         add_traefik_service(&mut compose);
@@ -80,7 +81,6 @@ pub fn generate_docker_compose(
     }
 
     if let Some(database) = &cluster_config.services.database {
-        let mut volumes: HashMap<String, serde_yaml::Value> = HashMap::new();
         add_database_service(&mut compose, &database, &mut volumes);
     }
 
@@ -187,7 +187,11 @@ fn add_database_service(
             };
 
             compose.services.insert("mysql".to_string(), mysql_service);
-            volumes.insert("mysql_data".to_string(), serde_yaml::Value::Null);
+
+            volumes.insert(
+                "mysql_data".to_string(),
+                Value::Mapping(serde_yaml::Mapping::new()),
+            );
 
             // Add MySQL exporter
             let mut exporter_env = HashMap::new();
@@ -234,7 +238,11 @@ fn add_database_service(
             compose
                 .services
                 .insert("postgres".to_string(), postgres_service);
-            volumes.insert("postgres_data".to_string(), serde_yaml::Value::Null);
+
+            volumes.insert(
+                "postgres_data".to_string(),
+                Value::Mapping(serde_yaml::Mapping::new()),
+            );
         }
         DatabaseType::MongoDB => {
             let mut mongo_env = HashMap::new();
@@ -258,9 +266,29 @@ fn add_database_service(
             };
 
             compose.services.insert("mongo".to_string(), mongo_service);
-            volumes.insert("mongo_data".to_string(), serde_yaml::Value::Null);
+            volumes.insert(
+                "mongo_data".to_string(),
+                Value::Mapping(serde_yaml::Mapping::new()),
+            );
         }
     }
+}
+
+pub fn generate_docker_file(config: &ClusterConfig) -> io::Result<()> {
+    // On met à jour le fichier de config en fonction des services sélectionnées
+    let docker_file_content = generate_docker_compose(config);
+    match docker_file_content {
+        Ok(docker_file_content) => {
+            if let Err(err) = create_docker_file(&docker_file_content) {
+                println!("Erreur lors de la génération du fichier docker file.");
+            }
+        }
+        Err(e) => println!(
+            "Erreur lors de la génération du fichier docker compose: {:?}",
+            e
+        ), // No need to return anything, just handle the error here.
+    }
+    Ok(())
 }
 
 pub fn create_docker_file(dockerfile_content: &str) -> io::Result<()> {

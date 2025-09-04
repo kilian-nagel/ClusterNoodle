@@ -4,6 +4,8 @@ mod docker {
 
 mod utils {
     pub mod command;
+    pub mod envVariables;
+    pub mod fs;
     pub mod ssh;
 }
 
@@ -15,13 +17,17 @@ mod config {
     pub mod config;
 }
 
-use crate::config::config::{ClusterConfig, build_cluster_nodes_objects};
+use crate::config::config::{
+    ClusterConfig, build_cluster_nodes_objects, check_conf_file_exists, init_app_config_folder,
+};
 use crate::services::services::{
-    DatabaseType, ServerType, Service, create_docker_file, generate_docker_compose,
+    DatabaseType, ServerType, Service, generate_docker_compose, generate_docker_file,
 };
 use clap::{Args, Parser, Subcommand};
 use docker::cluster;
 use std::path::PathBuf;
+use utils::envVariables::envVariables;
+use utils::fs;
 use utils::ssh;
 
 #[derive(Parser)]
@@ -47,6 +53,9 @@ enum Commands {
 
         #[command(flatten)]
         services: Services,
+
+        #[arg(short)]
+        docker_compose_file: Option<String>,
     },
     Stop {},
 }
@@ -65,10 +74,16 @@ struct Services {
 
 fn main() {
     println!("ClusterNoodle v0.1.0");
+
+    // Initialiser les ressources nécessaires pour l'application
+    init_app_config_folder();
+    check_conf_file_exists();
+
     let cli = Cli::parse();
 
     match &cli.command {
         Some(Commands::Start {
+            docker_compose_file,
             nodes_number,
             services,
         }) => {
@@ -82,9 +97,12 @@ fn main() {
 
             // On récupère la configuration des nodes du cluster dans le fichier
             // conf.cluster_noodle.
-            let nodes_configs = build_cluster_nodes_objects("conf.cluster_noodle");
+            let env = envVariables {};
+            let conf_file_path = env.get_conf_file_path();
+            let nodes_configs = build_cluster_nodes_objects(&conf_file_path);
+
             if nodes_configs.len() == 0 {
-                println!("No nodes config file found (conf.cluster_noodle)");
+                println!("No nodes config file found (~/.config/conf.cluster_noodle)");
             }
 
             let mut config = ClusterConfig {
@@ -98,19 +116,7 @@ fn main() {
                 },
             };
 
-            // On met à jour le fichier de config en fonction des services sélectionnées
-            let docker_file_content = generate_docker_compose(&config);
-            match docker_file_content {
-                Ok(docker_file_content) => {
-                    if let Err(err) = create_docker_file(&docker_file_content) {
-                        println!("Erreur lors de la génération du fichier docker file.");
-                    }
-                }
-                Err(e) => println!(
-                    "Erreur lors de la génération du fichier docker compose: {:?}",
-                    e
-                ), // No need to return anything, just handle the error here.
-            }
+            generate_docker_file(&config);
 
             // Init le cluster
             config.init();
@@ -128,7 +134,7 @@ fn main() {
             config.join_cluster();
 
             // Déploiement des services docker
-            cluster::deploy_services();
+            cluster::deploy_services(docker_compose_file.as_deref());
         }
         Some(Commands::Stop {}) => {
             let mut config = ClusterConfig {
