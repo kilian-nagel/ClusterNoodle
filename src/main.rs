@@ -1,3 +1,4 @@
+#![allow(non_snake_case)]
 mod docker {
     pub mod cluster;
 }
@@ -20,13 +21,11 @@ mod config {
 use crate::config::config::{
     ClusterConfig, build_cluster_nodes_objects, check_conf_file_exists, init_app_config_folder,
 };
-use crate::services::services::{
-    DatabaseType, ServerType, Service, generate_docker_compose, generate_docker_file,
-};
+use crate::services::services::{DatabaseType, ServerType, generate_docker_file};
 use clap::{Args, Parser, Subcommand};
 use docker::cluster;
 use std::path::PathBuf;
-use utils::envVariables::envVariables;
+use utils::envVariables::EnvVariables;
 use utils::fs;
 use utils::ssh;
 
@@ -87,6 +86,23 @@ fn main() {
             nodes_number,
             services,
         }) => {
+            let services_specified =
+                services.server.is_some() || services.database.is_some() || services.traefik;
+
+            if docker_compose_file.is_some() && services_specified {
+                eprintln!(
+                    "Error: You cannot specify both `--docker-compose-file` and individual services."
+                );
+                std::process::exit(1);
+            }
+
+            if docker_compose_file.is_none() && !services_specified {
+                eprintln!(
+                    "Error: You must specify either `--docker-compose-file` or at least one service."
+                );
+                std::process::exit(1);
+            }
+
             // Vérifie s'il y a déjà un cluster en exécution
             if cluster::check_existing_cluster() {
                 println!(
@@ -97,7 +113,9 @@ fn main() {
 
             // On récupère la configuration des nodes du cluster dans le fichier
             // conf.cluster_noodle.
-            let env = envVariables {};
+
+            println!("Getting servers from the conf file...");
+            let env = EnvVariables {};
             let conf_file_path = env.get_conf_file_path();
             let nodes_configs = build_cluster_nodes_objects(&conf_file_path);
 
@@ -116,30 +134,46 @@ fn main() {
                 },
             };
 
-            generate_docker_file(&config);
+            // On ne génère le fichier docker_compose uniquement si l'utilisateur n'a pas renseigné
+            // le sien.
+            if !docker_compose_file.is_some() {
+                println!("Generating docker-compose file...");
+                if let Err(e) = generate_docker_file(&config) {
+                    eprintln!("Error generating docker-compose file: {}", e);
+                }
+            }
 
             // Init le cluster
+            println!("Intializing cluster...");
             config.init();
 
             // Création des clés et connexions en SSH aux nodes
+            println!("Generating ssh keys...");
             if !ssh::check_existing_ssh_key() {
                 ssh::generate_ssh_key();
             }
             ssh::copy_ssh_key_to_machines(&config);
 
             // Installation de docker sur chaque machine
+
+            println!("Installating docker on target servers...");
             config.install_docker();
 
             // On fait rejoindre le cluster à chaque machine
+            println!("Target servers are joining the cluster...");
             config.join_cluster();
 
             // Déploiement des services docker
+            println!("Deploying services to the cluster...");
             cluster::deploy_services(docker_compose_file.as_deref());
         }
         Some(Commands::Stop {}) => {
+            let env = EnvVariables {};
+            let conf_file_path = env.get_conf_file_path();
+
             let mut config = ClusterConfig {
                 nodes_number: 0,
-                nodes_configs: build_cluster_nodes_objects("conf.cluster_noodle"),
+                nodes_configs: build_cluster_nodes_objects(&conf_file_path),
                 cluster_docker_command: String::from(""),
                 services: services::services::Services {
                     database: None,

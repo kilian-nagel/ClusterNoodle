@@ -1,12 +1,11 @@
+#![allow(dead_code)]
 use crate::ClusterConfig;
 use clap::ValueEnum;
 use serde::{Deserialize, Serialize};
-use serde_yaml::{Value, to_string};
-use std::collections::BTreeMap;
+use serde_yaml::Value;
 use std::collections::HashMap;
 use std::fs;
 use std::io;
-use std::path::PathBuf;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Service {
@@ -279,7 +278,7 @@ pub fn generate_docker_file(config: &ClusterConfig) -> io::Result<()> {
     let docker_file_content = generate_docker_compose(config);
     match docker_file_content {
         Ok(docker_file_content) => {
-            if let Err(err) = create_docker_file(&docker_file_content) {
+            if let Err(_err) = create_docker_file(&docker_file_content) {
                 println!("Erreur lors de la génération du fichier docker file.");
             }
         }

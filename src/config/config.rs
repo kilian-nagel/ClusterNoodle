@@ -1,6 +1,7 @@
+#![allow(dead_code)]
 use crate::fs::path_exists;
 use crate::services::services::Services;
-use crate::utils::envVariables::envVariables;
+use crate::utils::envVariables::EnvVariables;
 use std::fs;
 
 pub struct NodeConfig {
@@ -17,18 +18,23 @@ pub struct ClusterConfig {
 }
 
 pub fn init_app_config_folder() {
-    let env = envVariables {};
+    let env = EnvVariables {};
     let config_folder_path = env.get_conf_path();
-    fs::create_dir_all(config_folder_path);
+    if let Err(e) = fs::create_dir_all(config_folder_path) {
+        panic!(
+            "Erreur lors de la création du dossier de config de l'application: {}",
+            e
+        );
+    }
 }
 
 pub fn check_conf_file_exists() {
-    let env = envVariables {};
+    let env = EnvVariables {};
     let conf_file_path = env.get_conf_file_path();
 
     match path_exists(&conf_file_path) {
-        Ok(v) => (),
-        Err(e) => {
+        Ok(_v) => (),
+        Err(_e) => {
             panic!(
                 "No conf file found. You need to declare servers in the conf file (~/.config/conf.cluster_noodle)"
             );

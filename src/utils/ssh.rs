@@ -1,8 +1,9 @@
+#![allow(dead_code)]
 use crate::config::config;
 use crate::config::config::NodeConfig;
 use crate::utils::command;
 use std::path::PathBuf;
-use std::process::{Command, exit};
+use std::process::Command;
 use std::time::Duration;
 
 pub fn generate_ssh_key() {
@@ -49,9 +50,7 @@ pub fn copy_ssh_key_to_machines(config: &config::ClusterConfig) {
 
         match command::run_with_timeout(cmd, Duration::from_secs(5)) {
             Ok(Some(output)) => {
-                if output.status.success() {
-                    println!("Success!");
-                } else {
+                if !output.status.success() {
                     println!(
                         "ssh-copy-id failed: {}",
                         String::from_utf8_lossy(&output.stderr)
