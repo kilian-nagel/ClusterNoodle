@@ -12,6 +12,12 @@ mod utils {
 
 mod services {
     pub mod services;
+    pub mod apache {
+        pub mod apache;
+    }
+    pub mod nginx {
+        pub mod nginx;
+    }
 }
 
 mod config {
@@ -55,6 +61,12 @@ enum Commands {
 
         #[arg(short)]
         docker_compose_file: Option<String>,
+
+        #[arg(long)]
+        project_folder_path: String,
+
+        #[arg(short)]
+        project_entry_file_path: Option<String>,
     },
     Stop {},
 }
@@ -85,6 +97,8 @@ fn main() {
             docker_compose_file,
             nodes_number,
             services,
+            project_folder_path,
+            project_entry_file_path
         }) => {
             let services_specified =
                 services.server.is_some() || services.database.is_some() || services.traefik;
@@ -120,7 +134,7 @@ fn main() {
             let nodes_configs = build_cluster_nodes_objects(&conf_file_path);
 
             if nodes_configs.len() == 0 {
-                println!("No nodes config file found (~/.config/conf.cluster_noodle)");
+                println!("No nodes config file found (~/.config/ClusterNoodle/conf.cluster_noodle)");
             }
 
             let mut config = ClusterConfig {
@@ -132,9 +146,11 @@ fn main() {
                     database: services.database.clone(),
                     traefik: services.traefik.clone(),
                 },
+                project_folder_path: project_folder_path.to_string(),
+                project_entry_file_path: project_entry_file_path.clone()
             };
 
-            // On ne génère le fichier docker_compose uniquement si l'utilisateur n'a pas renseigné
+            // On ne génère le fichier doccaptker_compose uniquement si l'utilisateur n'a pas renseigné
             // le sien.
             if !docker_compose_file.is_some() {
                 println!("Generating docker-compose file...");
@@ -180,6 +196,8 @@ fn main() {
                     server: None,
                     traefik: false,
                 },
+                project_folder_path: String::from(""),
+                project_entry_file_path: Some(String::from("")),
             };
 
             println!("Stopping the cluster...");

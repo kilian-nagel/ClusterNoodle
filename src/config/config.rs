@@ -14,6 +14,8 @@ pub struct ClusterConfig {
     pub nodes_number: u16,
     pub nodes_configs: Vec<NodeConfig>,
     pub cluster_docker_command: String,
+    pub project_folder_path: String,
+    pub project_entry_file_path: Option<String>,
     pub services: Services,
 }
 

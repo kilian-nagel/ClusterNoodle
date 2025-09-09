@@ -1,6 +1,8 @@
 #![allow(dead_code)]
 use crate::ClusterConfig;
 use crate::utils::envVariables::EnvVariables;
+use crate::services::apache::apache::ApacheConfig;
+use crate::services::nginx::nginx::NginxConfig;
 use clap::ValueEnum;
 use serde::{Deserialize, Serialize};
 use serde_yaml::Value;
@@ -19,6 +21,7 @@ pub enum Service {
 pub enum ServerType {
     Nginx,
     Apache,
+    NodeJS
 }
 
 #[derive(Clone, Debug, ValueEnum)]
@@ -62,240 +65,285 @@ struct DockerCompose {
     volumes: Option<HashMap<String, serde_yaml::Value>>,
 }
 
-pub fn generate_docker_compose(
-    cluster_config: &ClusterConfig,
-) -> Result<String, Box<dyn std::error::Error>> {
-    let mut volumes: HashMap<String, serde_yaml::Value> = HashMap::new();
-    let mut compose = DockerCompose {
-        version: "3.9".to_string(),
-        services: HashMap::new(),
-        volumes: None,
-    };
-
-    if cluster_config.services.traefik {
-        add_traefik_service(&mut compose);
-    }
-
-    if let Some(server) = &cluster_config.services.server {
-        add_server_service(&mut compose, server, cluster_config.services.traefik);
-    }
-
-    if let Some(database) = &cluster_config.services.database {
-        add_database_service(
-            &mut compose,
-            &database,
-            &mut volumes,
-            cluster_config.services.traefik,
-        );
-    }
-
-    // Ajoute les volumes s'il y en avait
-    if !volumes.is_empty() {
-        compose.volumes = Some(volumes);
-    }
-
-    // Convertir le tout en yaml
-    let yaml = serde_yaml::to_string(&compose)?;
-    Ok(yaml)
+struct DockerComposeBuilder<'a>  {
+    cluster_config: &'a ClusterConfig,
+    volumes: HashMap<String, serde_yaml::Value>,
+    compose: DockerCompose,
 }
 
-fn add_traefik_service(compose: &mut DockerCompose) {
-    let traefik_service = DockerComposeService {
-        image: "traefik:v3.0".to_string(),
-        command: Some(vec![
-            "--api.dashboard=true".to_string(),
-            "--providers.docker=true".to_string(),
-            "--entrypoints.web.address=:80".to_string(),
-            "--metrics.prometheus=true".to_string(),
-        ]),
-        ports: Some(vec!["80:80".to_string(), "8080:8080".to_string()]),
-        volumes: Some(vec![
-            "/var/run/docker.sock:/var/run/docker.sock:ro".to_string(),
-        ]),
-        labels: Some(vec![
-            "traefik.enable=true".to_string(),
-            "traefik.http.routers.traefik.rule=Host(`traefik.localhost`)".to_string(),
-            "traefik.http.routers.traefik.service=api@internal".to_string(),
-        ]),
-        environment: None,
-        depends_on: None,
-    };
+impl<'a>  DockerComposeBuilder<'a> {
+    pub fn generate_docker_compose(&mut self) -> Result<String, Box<dyn std::error::Error>> {
 
-    compose
-        .services
-        .insert("traefik".to_string(), traefik_service);
-}
-
-fn add_server_service(compose: &mut DockerCompose, server_type: &ServerType, traefik: bool) {
-    match server_type {
-        ServerType::Nginx => {
-            let mut nginx_service = DockerComposeService {
-                image: "nginx:latest".to_string(),
-                labels: None,
-                command: None,
-                ports: Some(vec!["8080:80".to_string()]),
-                volumes: None,
-                environment: None,
-                depends_on: None,
-            };
-
-            if traefik {
-                nginx_service.labels = Some(vec![
-                    "traefik.enable=true".to_string(),
-                    "traefik.http.routers.nginx.rule=Host(`nginx.localhost`)".to_string(),
-                    "traefik.http.services.nginx.loadbalancer.server.port=80".to_string(),
-                ]);
-            }
-            compose.services.insert("nginx".to_string(), nginx_service);
+        if self.cluster_config.services.traefik {
+            self.add_traefik_service();
         }
-        ServerType::Apache => {
-            let mut apache_service = DockerComposeService {
-                image: "webdevops/php-apache:8.4".to_string(),
-                labels: None,
-                command: None,
-                ports: Some(vec!["8080:80".to_string()]),
-                volumes: None,
-                environment: None,
-                depends_on: None,
-            };
 
-            if traefik {
-                apache_service.labels = Some(vec![
-                    "traefik.enable=true".to_string(),
-                    "traefik.http.routers.apache.rule=Host(`apache.localhost`)".to_string(),
-                    "traefik.http.services.apache.loadbalancer.server.port=80".to_string(),
-                ]);
+        self.add_server_service();
+        self.add_database_service();
+
+        // Convertir le tout en yaml
+        let yaml = serde_yaml::to_string(&self.compose)?;
+        Ok(yaml)
+    }
+
+    fn add_traefik_service(&mut self) {
+        let traefik_service = DockerComposeService {
+            image: "traefik:v3.0".to_string(),
+            command: Some(vec![
+                "--api.dashboard=true".to_string(),
+                "--providers.docker=true".to_string(),
+                "--entrypoints.web.address=:80".to_string(),
+                "--metrics.prometheus=true".to_string(),
+            ]),
+            ports: Some(vec!["80:80".to_string(), "8080:8080".to_string()]),
+            volumes: Some(vec![
+                "/var/run/docker.sock:/var/run/docker.sock:ro".to_string(),
+            ]),
+            labels: Some(vec![
+                "traefik.enable=true".to_string(),
+                "traefik.http.routers.traefik.rule=Host(`traefik.localhost`)".to_string(),
+                "traefik.http.routers.traefik.service=api@internal".to_string(),
+            ]),
+            environment: None,
+            depends_on: None,
+        };
+
+        self.compose
+            .services
+            .insert("traefik".to_string(), traefik_service);
+    }
+
+    fn add_server_service(&mut self) {
+        match &self.cluster_config.services.server {
+            Some(ServerType::Nginx) => {
+                // Volume qui concerne le code à exécuter dans le serveur Nginx.
+                let project_volume = format!("{}:/var/www/html", self.cluster_config.project_folder_path);
+
+                // Volume qui concerne la config du serveur Nginx.
+                let conf_volume = format!("{}:/etc/nginx/sites-enabled/default.conf", NginxConfig::get_config_path());
+
+                let mut nginx_service = DockerComposeService {
+                    image: "nginx:latest".to_string(),
+                    labels: None,
+                    command: None,
+                    ports: Some(vec!["8080:80".to_string()]),
+                    volumes: Some(vec![project_volume, conf_volume]),
+                    environment: None,
+                    depends_on: None,
+                };
+
+                if self.cluster_config.services.traefik {
+                    nginx_service.labels = Some(vec![
+                        "traefik.enable=true".to_string(),
+                        "traefik.http.routers.nginx.rule=Host(`nginx.localhost`)".to_string(),
+                        "traefik.http.services.nginx.loadbalancer.server.port=80".to_string(),
+                    ]);
+                }
+                self.compose
+                    .services
+                    .insert("nginx".to_string(), nginx_service);
             }
 
-            compose
-                .services
-                .insert("apache".to_string(), apache_service);
+            Some(ServerType::Apache) => {
+                // Volume qui concerne le code à exécuter dans le serveur Apache.
+                let project_path_volume = format!("{}:/app", self.cluster_config.project_folder_path);
+
+                // Volume qui concerne la config du serveur Apache.
+                let vhost_path_volume = format!("{}:/opt/docker/etc/httpd/vhost.conf", ApacheConfig::get_vhost_config_path());
+
+                let mut apache_service = DockerComposeService {
+                    image: "webdevops/php-apache:8.4".to_string(),
+                    labels: None,
+                    command: None,
+                    ports: Some(vec!["8080:80".to_string()]),
+                    volumes: Some(vec![project_path_volume, vhost_path_volume]),
+                    environment: None,
+                    depends_on: None,
+                };
+
+                if self.cluster_config.services.traefik {
+                    apache_service.labels = Some(vec![
+                        "traefik.enable=true".to_string(),
+                        "traefik.http.routers.apache.rule=Host(`apache.localhost`)".to_string(),
+                        "traefik.http.services.apache.loadbalancer.server.port=80".to_string(),
+                    ]);
+                }
+
+                self.compose
+                    .services
+                    .insert("apache".to_string(), apache_service);
+            }
+
+            Some(ServerType::NodeJS) => {
+                let mut node_service = DockerComposeService {
+                    image: "node:22".to_string(),
+                    labels: None,
+                    command: Some(vec!["bash -c 'npm install && npm start'".to_string()]),
+                    ports: Some(vec!["3000:3000".to_string()]),
+                    volumes: None,
+                    environment: None,
+                    depends_on: None,
+                };
+
+                if self.cluster_config.services.traefik {
+                    node_service.labels = Some(vec![
+                        "traefik.enable=true".to_string(),
+                        "traefik.http.routers.node.rule=Host(`node.localhost`)".to_string(),
+                        "traefik.http.services.node.loadbalancer.server.port=80".to_string(),
+                    ]);
+                }
+
+                self.compose
+                    .services
+                    .insert("node".to_string(), node_service);
+            }
+
+            None => {
+                return;
+            }
         }
     }
-}
 
-fn add_database_service(
-    compose: &mut DockerCompose,
-    database_type: &DatabaseType,
-    volumes: &mut HashMap<String, serde_yaml::Value>,
-    traefik: bool,
-) {
-    match database_type {
-        DatabaseType::MySQL => {
-            let mut mysql_env = HashMap::new();
-            mysql_env.insert(
-                "MYSQL_ROOT_PASSWORD".to_string(),
-                "rootpassword".to_string(),
-            );
-            mysql_env.insert("MYSQL_DATABASE".to_string(), "app".to_string());
-            mysql_env.insert("MYSQL_USER".to_string(), "appuser".to_string());
-            mysql_env.insert("MYSQL_PASSWORD".to_string(), "apppassword".to_string());
+    fn add_database_service(&mut self) {
+        match self.cluster_config.services.database {
+            Some(DatabaseType::MySQL) => {
+                let mut mysql_env = HashMap::new();
+                mysql_env.insert(
+                    "MYSQL_ROOT_PASSWORD".to_string(),
+                    "rootpassword".to_string(),
+                );
+                mysql_env.insert("MYSQL_DATABASE".to_string(), "app".to_string());
+                mysql_env.insert("MYSQL_USER".to_string(), "appuser".to_string());
+                mysql_env.insert("MYSQL_PASSWORD".to_string(), "apppassword".to_string());
 
-            let mysql_service = DockerComposeService {
-                image: "mysql:8.4".to_string(),
-                environment: Some(mysql_env),
-                ports: Some(vec!["3306:3306".to_string()]),
-                volumes: Some(vec!["mysql_data:/var/lib/mysql".to_string()]),
-                command: None,
-                labels: None,
-                depends_on: None,
-            };
+                let mysql_service = DockerComposeService {
+                    image: "mysql:8.4".to_string(),
+                    environment: Some(mysql_env),
+                    ports: Some(vec!["3306:3306".to_string()]),
+                    volumes: Some(vec!["mysql_data:/var/lib/mysql".to_string()]),
+                    command: None,
+                    labels: None,
+                    depends_on: None,
+                };
 
-            compose.services.insert("mysql".to_string(), mysql_service);
+                self.compose
+                    .services
+                    .insert("mysql".to_string(), mysql_service);
 
-            volumes.insert(
-                "mysql_data".to_string(),
-                Value::Mapping(serde_yaml::Mapping::new()),
-            );
+                // Add MySQL exporter
+                let mut exporter_env = HashMap::new();
+                exporter_env.insert(
+                    "DATA_SOURCE_NAME".to_string(),
+                    "appuser:apppassword@(mysql:3306)/app".to_string(),
+                );
 
-            // Add MySQL exporter
-            let mut exporter_env = HashMap::new();
-            exporter_env.insert(
-                "DATA_SOURCE_NAME".to_string(),
-                "appuser:apppassword@(mysql:3306)/app".to_string(),
-            );
+                let mut mysqld_exporter = DockerComposeService {
+                    image: "prom/mysqld-exporter:latest".to_string(),
+                    environment: Some(exporter_env),
+                    depends_on: Some(vec!["mysql".to_string()]),
+                    labels: None,
+                    command: None,
+                    ports: None,
+                    volumes: None,
+                };
 
-            let mut mysqld_exporter = DockerComposeService {
-                image: "prom/mysqld-exporter:latest".to_string(),
-                environment: Some(exporter_env),
-                depends_on: Some(vec!["mysql".to_string()]),
-                labels: None,
-                command: None,
-                ports: None,
-                volumes: None,
-            };
+                if self.cluster_config.services.traefik {
+                    mysqld_exporter.labels = Some(vec![
+                        "traefik.enable=true".to_string(),
+                        "traefik.http.routers.mysqlmetrics.rule=Host(`mysql-metrics.localhost`)"
+                            .to_string(),
+                        "traefik.http.services.mysqlmetrics.loadbalancer.server.port=9104"
+                            .to_string(),
+                    ]);
+                }
 
-            if traefik {
-                mysqld_exporter.labels = Some(vec![
-                    "traefik.enable=true".to_string(),
-                    "traefik.http.routers.mysqlmetrics.rule=Host(`mysql-metrics.localhost`)"
-                        .to_string(),
-                    "traefik.http.services.mysqlmetrics.loadbalancer.server.port=9104".to_string(),
-                ]);
+                self.compose
+                    .services
+                    .insert("mysqld_exporter".to_string(), mysqld_exporter);
+
+
+                self.volumes.insert(
+                    "mysql_data".to_string(),
+                    Value::Mapping(serde_yaml::Mapping::new()),
+                );
             }
 
-            compose
-                .services
-                .insert("mysqld_exporter".to_string(), mysqld_exporter);
-        }
-        DatabaseType::PostgreSQL => {
-            let mut postgres_env = HashMap::new();
-            postgres_env.insert("POSTGRES_DB".to_string(), "app".to_string());
-            postgres_env.insert("POSTGRES_USER".to_string(), "appuser".to_string());
-            postgres_env.insert("POSTGRES_PASSWORD".to_string(), "apppassword".to_string());
+            Some(DatabaseType::PostgreSQL) => {
+                let mut postgres_env = HashMap::new();
+                postgres_env.insert("POSTGRES_DB".to_string(), "app".to_string());
+                postgres_env.insert("POSTGRES_USER".to_string(), "appuser".to_string());
+                postgres_env.insert("POSTGRES_PASSWORD".to_string(), "apppassword".to_string());
 
-            let postgres_service = DockerComposeService {
-                image: "postgres:15".to_string(),
-                environment: Some(postgres_env),
-                ports: Some(vec!["5432:5432".to_string()]),
-                volumes: Some(vec!["postgres_data:/var/lib/postgresql/data".to_string()]),
-                command: None,
-                labels: None,
-                depends_on: None,
-            };
+                let postgres_service = DockerComposeService {
+                    image: "postgres:15".to_string(),
+                    environment: Some(postgres_env),
+                    ports: Some(vec!["5432:5432".to_string()]),
+                    volumes: Some(vec!["postgres_data:/var/lib/postgresql/data".to_string()]),
+                    command: None,
+                    labels: None,
+                    depends_on: None,
+                };
 
-            compose
-                .services
-                .insert("postgres".to_string(), postgres_service);
+                self.compose
+                    .services
+                    .insert("postgres".to_string(), postgres_service);
 
-            volumes.insert(
-                "postgres_data".to_string(),
-                Value::Mapping(serde_yaml::Mapping::new()),
-            );
-        }
-        DatabaseType::MongoDB => {
-            let mut mongo_env = HashMap::new();
-            mongo_env.insert(
-                "MONGO_INITDB_ROOT_USERNAME".to_string(),
-                "admin".to_string(),
-            );
-            mongo_env.insert(
-                "MONGO_INITDB_ROOT_PASSWORD".to_string(),
-                "adminpassword".to_string(),
-            );
+                self.volumes.insert(
+                    "postgres_data".to_string(),
+                    Value::Mapping(serde_yaml::Mapping::new()),
+                );
+            }
 
-            let mongo_service = DockerComposeService {
-                image: "mongo:7".to_string(),
-                environment: Some(mongo_env),
-                ports: Some(vec!["27017:27017".to_string()]),
-                volumes: Some(vec!["mongo_data:/data/db".to_string()]),
-                command: None,
-                labels: None,
-                depends_on: None,
-            };
+            Some(DatabaseType::MongoDB) => {
+                let mut mongo_env = HashMap::new();
+                mongo_env.insert(
+                    "MONGO_INITDB_ROOT_USERNAME".to_string(),
+                    "admin".to_string(),
+                );
+                mongo_env.insert(
+                    "MONGO_INITDB_ROOT_PASSWORD".to_string(),
+                    "adminpassword".to_string(),
+                );
 
-            compose.services.insert("mongo".to_string(), mongo_service);
-            volumes.insert(
-                "mongo_data".to_string(),
-                Value::Mapping(serde_yaml::Mapping::new()),
-            );
+                let mongo_service = DockerComposeService {
+                    image: "mongo:7".to_string(),
+                    environment: Some(mongo_env),
+                    ports: Some(vec!["27017:27017".to_string()]),
+                    volumes: Some(vec!["mongo_data:/data/db".to_string()]),
+                    command: None,
+                    labels: None,
+                    depends_on: None,
+                };
+
+                self.compose
+                    .services
+                    .insert("mongo".to_string(), mongo_service);
+
+                self.volumes.insert(
+                    "mongo_data".to_string(),
+                    Value::Mapping(serde_yaml::Mapping::new()),
+                );
+            }
+
+            None => {
+                return;
+            }
         }
     }
 }
 
 pub fn generate_docker_file(config: &ClusterConfig) -> io::Result<()> {
     // On met à jour le fichier de config en fonction des services sélectionnées
-    let docker_file_content = generate_docker_compose(config);
+    let mut docker_compose_builder = DockerComposeBuilder {
+        cluster_config: &config,
+        volumes : HashMap::new(),
+        compose : DockerCompose {
+            version: "3.9".to_string(),
+            services: HashMap::new(),
+            volumes: None,
+        }
+    };
+    let docker_file_content = docker_compose_builder.generate_docker_compose();
     match docker_file_content {
         Ok(docker_file_content) => {
             if let Err(_err) = create_docker_file(&docker_file_content) {
