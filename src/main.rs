@@ -5,6 +5,7 @@ mod docker {
 
 mod utils {
     pub mod command;
+    pub mod envParsing;
     pub mod envVariables;
     pub mod fs;
     pub mod ssh;
@@ -98,7 +99,7 @@ fn main() {
             nodes_number,
             services,
             project_folder_path,
-            project_entry_file_path
+            project_entry_file_path,
         }) => {
             let services_specified =
                 services.server.is_some() || services.database.is_some() || services.traefik;
@@ -134,7 +135,9 @@ fn main() {
             let nodes_configs = build_cluster_nodes_objects(&conf_file_path);
 
             if nodes_configs.len() == 0 {
-                println!("No nodes config file found (~/.config/ClusterNoodle/conf.cluster_noodle)");
+                println!(
+                    "No nodes config file found (~/.config/ClusterNoodle/conf.cluster_noodle)"
+                );
             }
 
             let mut config = ClusterConfig {
@@ -147,7 +150,7 @@ fn main() {
                     traefik: services.traefik.clone(),
                 },
                 project_folder_path: project_folder_path.to_string(),
-                project_entry_file_path: project_entry_file_path.clone()
+                project_entry_file_path: project_entry_file_path.clone(),
             };
 
             // On ne génère le fichier doccaptker_compose uniquement si l'utilisateur n'a pas renseigné

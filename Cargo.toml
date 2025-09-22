@@ -6,6 +6,8 @@ edition = "2024"
 [dependencies]
 clap = { version = "4.5.41", features = ["derive"] }
 dirs = "5.0"
+dotenvy = "0.15.7"
+envy = "0.4.2"
 regex = "1.11.1"
 serde = { version = "1.0.219", features = ["derive"]}
 serde_yaml = "0.9"

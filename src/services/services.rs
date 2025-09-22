@@ -1,8 +1,9 @@
 #![allow(dead_code)]
 use crate::ClusterConfig;
-use crate::utils::envVariables::EnvVariables;
 use crate::services::apache::apache::ApacheConfig;
 use crate::services::nginx::nginx::NginxConfig;
+use crate::utils::envParsing::EnvConfig;
+use crate::utils::envVariables::EnvVariables;
 use clap::ValueEnum;
 use serde::{Deserialize, Serialize};
 use serde_yaml::Value;
@@ -21,7 +22,7 @@ pub enum Service {
 pub enum ServerType {
     Nginx,
     Apache,
-    NodeJS
+    NodeJS,
 }
 
 #[derive(Clone, Debug, ValueEnum)]
@@ -65,15 +66,14 @@ struct DockerCompose {
     volumes: Option<HashMap<String, serde_yaml::Value>>,
 }
 
-struct DockerComposeBuilder<'a>  {
+struct DockerComposeBuilder<'a> {
     cluster_config: &'a ClusterConfig,
     volumes: HashMap<String, serde_yaml::Value>,
     compose: DockerCompose,
 }
 
-impl<'a>  DockerComposeBuilder<'a> {
+impl<'a> DockerComposeBuilder<'a> {
     pub fn generate_docker_compose(&mut self) -> Result<String, Box<dyn std::error::Error>> {
-
         if self.cluster_config.services.traefik {
             self.add_traefik_service();
         }
@@ -117,16 +117,20 @@ impl<'a>  DockerComposeBuilder<'a> {
         match &self.cluster_config.services.server {
             Some(ServerType::Nginx) => {
                 // Volume qui concerne le code à exécuter dans le serveur Nginx.
-                let project_volume = format!("{}:/var/www/html", self.cluster_config.project_folder_path);
+                let project_volume =
+                    format!("{}:/var/www/html", self.cluster_config.project_folder_path);
 
                 // Volume qui concerne la config du serveur Nginx.
-                let conf_volume = format!("{}:/etc/nginx/sites-enabled/default.conf", NginxConfig::get_config_path());
+                let conf_volume = format!(
+                    "{}:/etc/nginx/sites-enabled/default.conf",
+                    NginxConfig::get_config_path()
+                );
 
                 let mut nginx_service = DockerComposeService {
                     image: "nginx:latest".to_string(),
                     labels: None,
                     command: None,
-                    ports: Some(vec!["8080:80".to_string()]),
+                    ports: Some(vec![format!("8080:80")]),
                     volumes: Some(vec![project_volume, conf_volume]),
                     environment: None,
                     depends_on: None,
@@ -146,16 +150,20 @@ impl<'a>  DockerComposeBuilder<'a> {
 
             Some(ServerType::Apache) => {
                 // Volume qui concerne le code à exécuter dans le serveur Apache.
-                let project_path_volume = format!("{}:/app", self.cluster_config.project_folder_path);
+                let project_path_volume =
+                    format!("{}:/app", self.cluster_config.project_folder_path);
 
                 // Volume qui concerne la config du serveur Apache.
-                let vhost_path_volume = format!("{}:/opt/docker/etc/httpd/vhost.conf", ApacheConfig::get_vhost_config_path());
+                let vhost_path_volume = format!(
+                    "{}:/opt/docker/etc/httpd/vhost.conf",
+                    ApacheConfig::get_vhost_config_path()
+                );
 
                 let mut apache_service = DockerComposeService {
                     image: "webdevops/php-apache:8.4".to_string(),
                     labels: None,
                     command: None,
-                    ports: Some(vec!["8080:80".to_string()]),
+                    ports: Some(vec![format!("8080:80")]),
                     volumes: Some(vec![project_path_volume, vhost_path_volume]),
                     environment: None,
                     depends_on: None,
@@ -205,16 +213,24 @@ impl<'a>  DockerComposeBuilder<'a> {
     }
 
     fn add_database_service(&mut self) {
+        let config = envy::from_env::<EnvConfig>().expect("Failed to deserialize config");
+        let database_user = config.database_user.unwrap_or_else(|| "appuser".into());
+        let database_password = config.database_password.unwrap_or_else(|| "app".into());
+        let database_name = config.database_name.unwrap_or_else(|| "app".into());
+
         match self.cluster_config.services.database {
             Some(DatabaseType::MySQL) => {
                 let mut mysql_env = HashMap::new();
+
                 mysql_env.insert(
-                    "MYSQL_ROOT_PASSWORD".to_string(),
-                    "rootpassword".to_string(),
+                    "MYSQL_ROOT_PASSWORD".into(),
+                    config
+                        .database_rootpassword
+                        .unwrap_or_else(|| "rootpassword".into()),
                 );
-                mysql_env.insert("MYSQL_DATABASE".to_string(), "app".to_string());
-                mysql_env.insert("MYSQL_USER".to_string(), "appuser".to_string());
-                mysql_env.insert("MYSQL_PASSWORD".to_string(), "apppassword".to_string());
+                mysql_env.insert("MYSQL_USER".into(), database_user.clone());
+                mysql_env.insert("MYSQL_PASSWORD".into(), database_password.clone());
+                mysql_env.insert("MYSQL_DATABASE".into(), database_name.clone());
 
                 let mysql_service = DockerComposeService {
                     image: "mysql:8.4".to_string(),
@@ -234,7 +250,7 @@ impl<'a>  DockerComposeBuilder<'a> {
                 let mut exporter_env = HashMap::new();
                 exporter_env.insert(
                     "DATA_SOURCE_NAME".to_string(),
-                    "appuser:apppassword@(mysql:3306)/app".to_string(),
+                    format!("{}:{}@(mysql:3306)/app", database_user, database_password),
                 );
 
                 let mut mysqld_exporter = DockerComposeService {
@@ -261,18 +277,20 @@ impl<'a>  DockerComposeBuilder<'a> {
                     .services
                     .insert("mysqld_exporter".to_string(), mysqld_exporter);
 
-
-                self.volumes.insert(
+                let mut sql_volume = HashMap::new();
+                sql_volume.insert(
                     "mysql_data".to_string(),
                     Value::Mapping(serde_yaml::Mapping::new()),
                 );
+
+                let _ = self.compose.volumes.insert(sql_volume);
             }
 
             Some(DatabaseType::PostgreSQL) => {
                 let mut postgres_env = HashMap::new();
-                postgres_env.insert("POSTGRES_DB".to_string(), "app".to_string());
-                postgres_env.insert("POSTGRES_USER".to_string(), "appuser".to_string());
-                postgres_env.insert("POSTGRES_PASSWORD".to_string(), "apppassword".to_string());
+                postgres_env.insert("POSTGRES_DB".into(), database_name.clone());
+                postgres_env.insert("POSTGRES_USER".to_string(), database_user.clone());
+                postgres_env.insert("POSTGRES_PASSWORD".to_string(), database_password.clone());
 
                 let postgres_service = DockerComposeService {
                     image: "postgres:15".to_string(),
@@ -288,22 +306,19 @@ impl<'a>  DockerComposeBuilder<'a> {
                     .services
                     .insert("postgres".to_string(), postgres_service);
 
-                self.volumes.insert(
+                let mut postgres_volume = HashMap::new();
+                postgres_volume.insert(
                     "postgres_data".to_string(),
                     Value::Mapping(serde_yaml::Mapping::new()),
                 );
+
+                let _ = self.compose.volumes.insert(postgres_volume);
             }
 
             Some(DatabaseType::MongoDB) => {
                 let mut mongo_env = HashMap::new();
-                mongo_env.insert(
-                    "MONGO_INITDB_ROOT_USERNAME".to_string(),
-                    "admin".to_string(),
-                );
-                mongo_env.insert(
-                    "MONGO_INITDB_ROOT_PASSWORD".to_string(),
-                    "adminpassword".to_string(),
-                );
+                mongo_env.insert("MONGO_INITDB_ROOT_USERNAME".to_string(), "root".to_string());
+                mongo_env.insert("MONGO_INITDB_ROOT_PASSWORD".to_string(), database_password);
 
                 let mongo_service = DockerComposeService {
                     image: "mongo:7".to_string(),
@@ -336,12 +351,12 @@ pub fn generate_docker_file(config: &ClusterConfig) -> io::Result<()> {
     // On met à jour le fichier de config en fonction des services sélectionnées
     let mut docker_compose_builder = DockerComposeBuilder {
         cluster_config: &config,
-        volumes : HashMap::new(),
-        compose : DockerCompose {
+        volumes: HashMap::new(),
+        compose: DockerCompose {
             version: "3.9".to_string(),
             services: HashMap::new(),
             volumes: None,
-        }
+        },
     };
     let docker_file_content = docker_compose_builder.generate_docker_compose();
     match docker_file_content {

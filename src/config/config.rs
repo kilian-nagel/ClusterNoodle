@@ -1,8 +1,10 @@
 #![allow(dead_code)]
 use crate::fs::path_exists;
 use crate::services::services::Services;
+use crate::utils::envParsing::EnvConfig;
 use crate::utils::envVariables::EnvVariables;
 use std::fs;
+use std::fs::OpenOptions;
 
 pub struct NodeConfig {
     pub ip: String,
@@ -21,13 +23,21 @@ pub struct ClusterConfig {
 
 pub fn init_app_config_folder() {
     let env = EnvVariables {};
-    let config_folder_path = env.get_conf_path();
-    if let Err(e) = fs::create_dir_all(config_folder_path) {
+
+    if let Err(e) = fs::create_dir_all(env.get_conf_path()) {
         panic!(
             "Erreur lors de la création du dossier de config de l'application: {}",
             e
         );
     }
+
+    OpenOptions::new()
+        .write(true)
+        .create(true) // only create if file does NOT exist
+        .open(env.get_env_file_path())
+        .unwrap_or_else(|e| panic!("Erreur lors de la création du fichier .env : {}", e));
+
+    dotenvy::from_path(&env.get_env_file_path()).unwrap();
 }
 
 pub fn check_conf_file_exists() {

@@ -15,4 +15,8 @@ impl EnvVariables {
     pub fn get_conf_file_path(&self) -> String {
         return format!("{}/conf.cluster_noodle", self.get_conf_path());
     }
+
+    pub fn get_env_file_path(&self) -> String {
+        return format!("{}/app.env", self.get_conf_path());
+    }
 }
