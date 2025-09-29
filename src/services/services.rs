@@ -116,25 +116,37 @@ impl<'a> DockerComposeBuilder<'a> {
     fn add_server_service(&mut self) {
         match &self.cluster_config.services.server {
             Some(ServerType::Nginx) => {
-                // Volume qui concerne le code à exécuter dans le serveur Nginx.
-                let project_volume =
-                    format!("{}:/var/www/html", self.cluster_config.project_folder_path);
-
                 // Volume qui concerne la config du serveur Nginx.
                 let conf_volume = format!(
-                    "{}:/etc/nginx/sites-enabled/default.conf",
+                    "{}:/etc/nginx/conf.d/server.conf",
                     NginxConfig::get_config_path()
                 );
-
+                
                 let mut nginx_service = DockerComposeService {
-                    image: "nginx:latest".to_string(),
-                    labels: None,
+                    image: "trafex/php-nginx:3.9.0".to_string(),
+                    labels: None,   
                     command: None,
-                    ports: Some(vec![format!("8080:80")]),
-                    volumes: Some(vec![project_volume, conf_volume]),
+                    ports: Some(vec![format!("80:8080")]),
+                    volumes: Some(vec![conf_volume]),
                     environment: None,
                     depends_on: None,
                 };
+
+                if let Some(ref mut volumes) = nginx_service.volumes && self.cluster_config.project_folder_path.is_some() {
+                    // Volume qui concerne le code à exécuter dans le serveur Nginx.
+                    volumes.push(format!("{}:/var/www/html", self.cluster_config.project_folder_path.clone().unwrap_or(String::from(""))));
+                };
+
+                if let Some(crt_path) =     &self.cluster_config.ssl_certificate_path_crt  && let Some(key_path) = &self.cluster_config.ssl_certificate_path_key{
+                    if let Some(ref mut vols) = nginx_service.volumes {
+                        vols.push(format!("{}:/etc/nginx/ssl/crt.pem", crt_path));
+                        vols.push(format!("{}:/etc/nginx/ssl/key.pem", key_path));
+                    }
+
+                    if let Some(ref mut ports) = nginx_service.ports {
+                        ports.push(format!("443:443"));
+                    }
+                }
 
                 if self.cluster_config.services.traefik {
                     nginx_service.labels = Some(vec![
@@ -149,9 +161,6 @@ impl<'a> DockerComposeBuilder<'a> {
             }
 
             Some(ServerType::Apache) => {
-                // Volume qui concerne le code à exécuter dans le serveur Apache.
-                let project_path_volume =
-                    format!("{}:/app", self.cluster_config.project_folder_path);
 
                 // Volume qui concerne la config du serveur Apache.
                 let vhost_path_volume = format!(
@@ -164,10 +173,26 @@ impl<'a> DockerComposeBuilder<'a> {
                     labels: None,
                     command: None,
                     ports: Some(vec![format!("8080:80")]),
-                    volumes: Some(vec![project_path_volume, vhost_path_volume]),
+                    volumes: Some(vec![vhost_path_volume]),
                     environment: None,
                     depends_on: None,
                 };
+
+                if let Some(ref mut volumes) = apache_service.volumes && self.cluster_config.project_folder_path.is_some() {
+                    // Volume qui concerne le code à exécuter dans le serveur Apache.
+                    volumes.push(format!("{}:/app", self.cluster_config.project_folder_path.clone().unwrap_or(String::from(""))));
+                };
+
+                if let Some(crt_path) = &self.cluster_config.ssl_certificate_path_crt  && let Some(key_path) = &self.cluster_config.ssl_certificate_path_key{
+                    if let Some(ref mut vols) = apache_service.volumes {
+                        vols.push(format!("{}:/opt/docker/etc/httpd/ssl/server.crt", crt_path));
+                        vols.push(format!("{}:/opt/docker/etc/httpd/ssl/server.key", key_path));
+                    }
+
+                    if let Some(ref mut ports) = apache_service.ports {
+                        ports.push(format!("8081:443"));
+                    }
+                }
 
                 if self.cluster_config.services.traefik {
                     apache_service.labels = Some(vec![

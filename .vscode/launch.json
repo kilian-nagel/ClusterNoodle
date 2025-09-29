@@ -1,0 +1,45 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug executable 'ClusterNoodle'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=ClusterNoodle",
+                    "--package=ClusterNoodle"
+                ],
+                "filter": {
+                    "name": "ClusterNoodle",
+                    "kind": "bin"
+                }
+            },
+            "args": ["start","-n","10","--server", "nginx", "--database", "mysql","--project-folder-path","/home/kilian/Documents/laravel-realworld-example-app-apache"],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in executable 'ClusterNoodle'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--bin=ClusterNoodle",
+                    "--package=ClusterNoodle"
+                ],
+                "filter": {
+                    "name": "ClusterNoodle",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        }
+    ]
+}

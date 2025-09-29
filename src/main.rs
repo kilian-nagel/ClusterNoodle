@@ -63,11 +63,21 @@ enum Commands {
         #[arg(short)]
         docker_compose_file: Option<String>,
 
+        #[arg(short, long)]
+        no_rebuild_docker_compose_file: bool,
+
         #[arg(long)]
-        project_folder_path: String,
+        project_folder_path: Option<String>,
 
         #[arg(short)]
         project_entry_file_path: Option<String>,
+        
+        #[arg(long)]
+        ssl_certificate_path_key: Option<String>,
+
+        #[arg(long)]
+        ssl_certificate_path_crt: Option<String>,
+
     },
     Stop {},
 }
@@ -100,6 +110,9 @@ fn main() {
             services,
             project_folder_path,
             project_entry_file_path,
+            ssl_certificate_path_key,
+            ssl_certificate_path_crt,
+            no_rebuild_docker_compose_file
         }) => {
             let services_specified =
                 services.server.is_some() || services.database.is_some() || services.traefik;
@@ -134,12 +147,6 @@ fn main() {
             let conf_file_path = env.get_conf_file_path();
             let nodes_configs = build_cluster_nodes_objects(&conf_file_path);
 
-            if nodes_configs.len() == 0 {
-                println!(
-                    "No nodes config file found (~/.config/ClusterNoodle/conf.cluster_noodle)"
-                );
-            }
-
             let mut config = ClusterConfig {
                 nodes_number: *nodes_number,
                 nodes_configs: nodes_configs,
@@ -149,13 +156,15 @@ fn main() {
                     database: services.database.clone(),
                     traefik: services.traefik.clone(),
                 },
-                project_folder_path: project_folder_path.to_string(),
+                project_folder_path: project_folder_path.clone(),
                 project_entry_file_path: project_entry_file_path.clone(),
+                ssl_certificate_path_key: ssl_certificate_path_key.clone(),
+                ssl_certificate_path_crt: ssl_certificate_path_crt.clone()
             };
 
             // On ne génère le fichier doccaptker_compose uniquement si l'utilisateur n'a pas renseigné
             // le sien.
-            if !docker_compose_file.is_some() {
+            if !docker_compose_file.is_some() && !*no_rebuild_docker_compose_file  {
                 println!("Generating docker-compose file...");
                 if let Err(e) = generate_docker_file(&config) {
                     eprintln!("Error generating docker-compose file: {}", e);
@@ -199,8 +208,10 @@ fn main() {
                     server: None,
                     traefik: false,
                 },
-                project_folder_path: String::from(""),
+                project_folder_path: Some(String::from("")),
                 project_entry_file_path: Some(String::from("")),
+                ssl_certificate_path_key: Some(String::from("")),
+                ssl_certificate_path_crt: Some(String::from("")),
             };
 
             println!("Stopping the cluster...");

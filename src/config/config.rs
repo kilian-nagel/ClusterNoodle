@@ -1,7 +1,6 @@
 #![allow(dead_code)]
 use crate::fs::path_exists;
 use crate::services::services::Services;
-use crate::utils::envParsing::EnvConfig;
 use crate::utils::envVariables::EnvVariables;
 use std::fs;
 use std::fs::OpenOptions;
@@ -16,8 +15,10 @@ pub struct ClusterConfig {
     pub nodes_number: u16,
     pub nodes_configs: Vec<NodeConfig>,
     pub cluster_docker_command: String,
-    pub project_folder_path: String,
+    pub project_folder_path: Option<String>,
     pub project_entry_file_path: Option<String>,
+    pub ssl_certificate_path_key: Option<String>,
+    pub ssl_certificate_path_crt: Option<String>,
     pub services: Services,
 }
 
@@ -70,6 +71,15 @@ pub fn build_cluster_nodes_objects(file_path: &str) -> Vec<NodeConfig> {
                 password: data[2].to_string(),
             };
             nodes_configs.push(node_config);
+        } else if data.len() > 1 {
+            let node_config = NodeConfig {
+                ip: data[0].to_string(),
+                username: data[1].to_string(),
+                password: String::from(""),
+            };
+            nodes_configs.push(node_config);
+        } else if data.len() == 1 {
+            panic!("For each server declared in the conf file you need to provide at least ip,username");
         }
     }
 

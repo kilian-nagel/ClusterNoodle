@@ -27,11 +27,36 @@ pub fn check_existing_cluster() -> bool {
 
 impl ClusterConfig {
     pub fn init(&mut self) -> () {
+        // Change this to the interface you want to pin (e.g., "wlp2s0" or "usb0")
+        let interface = "wlp2s0";
+
+        // Get the IPv4 address of the interface
+        let ip_output = Command::new("sh")
+            .arg("-c")
+            .arg(format!(
+                "ip -4 addr show {} | grep -oP '(?<=inet\\s)\\d+(\\.\\d+){{3}}'",
+                interface
+            ))
+            .output()
+            .expect("Failed to get IP address");
+
+        let ip = str::from_utf8(&ip_output.stdout)
+            .unwrap()
+            .trim();
+
+        if ip.is_empty() {
+            eprintln!("Could not find an IPv4 address for interface {}", interface);
+            std::process::exit(1);
+        }
+
+        // Run docker swarm init with the detected IP
         let output = Command::new("docker")
             .arg("swarm")
             .arg("init")
+            .arg("--advertise-addr")
+            .arg(ip)
             .output()
-            .unwrap();
+            .expect("Failed to run docker swarm init");
 
         let output_string = String::from_utf8_lossy(&output.stdout).to_string(); // owns the String
 

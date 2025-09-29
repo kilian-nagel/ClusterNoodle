@@ -1,4 +1,3 @@
-use dotenvy::dotenv_iter;
 use serde::Deserialize;
 
 #[derive(Deserialize)]
