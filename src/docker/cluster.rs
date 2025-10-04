@@ -26,28 +26,32 @@ pub fn check_existing_cluster() -> bool {
 }
 
 impl ClusterConfig {
-    pub fn init(&mut self) -> () {
-        // Change this to the interface you want to pin (e.g., "wlp2s0" or "usb0")
-        let interface = "wlp2s0";
+    pub fn init(&mut self, ip_adress: &Option<String>) -> () {
+        let env = EnvVariables {};
+        let usable_ip_script_path = &env.get_usable_ip_script_path();
 
-        // Get the IPv4 address of the interface
-        let ip_output = Command::new("sh")
-            .arg("-c")
-            .arg(format!(
-                "ip -4 addr show {} | grep -oP '(?<=inet\\s)\\d+(\\.\\d+){{3}}'",
-                interface
-            ))
-            .output()
-            .expect("Failed to get IP address");
+        let ip: String;
 
-        let ip = str::from_utf8(&ip_output.stdout)
-            .unwrap()
-            .trim();
+        if ip_adress.is_none() {
+            let ip_output = Command::new("/bin/bash")
+                .arg(usable_ip_script_path)
+                .output()
+                .expect("Failed to get IP address");
 
-        if ip.is_empty() {
-            eprintln!("Could not find an IPv4 address for interface {}", interface);
-            std::process::exit(1);
+            ip = str::from_utf8(&ip_output.stdout)
+                .expect("Invalid UTF-8 output")
+                .trim()
+                .to_string();
+
+            if ip.is_empty() {
+                eprintln!("Could not find a valid network interface (eth, wlp, or virbr)");
+                std::process::exit(1);
+            }
+        } else {
+            ip = ip_adress.clone().unwrap();
         }
+
+        println!("Using IP: {}", ip);
 
         // Run docker swarm init with the detected IP
         let output = Command::new("docker")
@@ -186,6 +190,7 @@ pub fn deploy_services(docker_file_path_param: Option<&str>) {
     // Si un chemin a été renseigné on l'utilise sinon utilise celui par défaut.
     let env = EnvVariables {};
     let mut docker_file_path = String::from(env.get_docker_file_path());
+
 
     if let Some(path) = docker_file_path_param {
         let docker_file_path_absolute =

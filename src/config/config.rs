@@ -12,6 +12,7 @@ pub struct NodeConfig {
 }
 
 pub struct ClusterConfig {
+    pub ip_adress: Option<String>,
     pub nodes_number: u16,
     pub nodes_configs: Vec<NodeConfig>,
     pub cluster_docker_command: String,

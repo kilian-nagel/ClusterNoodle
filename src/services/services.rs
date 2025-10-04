@@ -118,7 +118,7 @@ impl<'a> DockerComposeBuilder<'a> {
             Some(ServerType::Nginx) => {
                 // Volume qui concerne la config du serveur Nginx.
                 let conf_volume = format!(
-                    "{}:/etc/nginx/conf.d/server.conf",
+                    "{}:/etc/nginx/conf.d/server.conf:ro",
                     NginxConfig::get_config_path()
                 );
                 
@@ -139,8 +139,8 @@ impl<'a> DockerComposeBuilder<'a> {
 
                 if let Some(crt_path) =     &self.cluster_config.ssl_certificate_path_crt  && let Some(key_path) = &self.cluster_config.ssl_certificate_path_key{
                     if let Some(ref mut vols) = nginx_service.volumes {
-                        vols.push(format!("{}:/etc/nginx/ssl/crt.pem", crt_path));
-                        vols.push(format!("{}:/etc/nginx/ssl/key.pem", key_path));
+                        vols.push(format!("{}:/etc/nginx/ssl/crt.pem:ro", crt_path));
+                        vols.push(format!("{}:/etc/nginx/ssl/key.pem:ro", key_path));
                     }
 
                     if let Some(ref mut ports) = nginx_service.ports {
@@ -164,7 +164,7 @@ impl<'a> DockerComposeBuilder<'a> {
 
                 // Volume qui concerne la config du serveur Apache.
                 let vhost_path_volume = format!(
-                    "{}:/opt/docker/etc/httpd/vhost.conf",
+                    "{}:/opt/docker/etc/httpd/vhost.conf:ro",
                     ApacheConfig::get_vhost_config_path()
                 );
 
@@ -185,12 +185,12 @@ impl<'a> DockerComposeBuilder<'a> {
 
                 if let Some(crt_path) = &self.cluster_config.ssl_certificate_path_crt  && let Some(key_path) = &self.cluster_config.ssl_certificate_path_key{
                     if let Some(ref mut vols) = apache_service.volumes {
-                        vols.push(format!("{}:/opt/docker/etc/httpd/ssl/server.crt", crt_path));
-                        vols.push(format!("{}:/opt/docker/etc/httpd/ssl/server.key", key_path));
+                        vols.push(format!("{}:/opt/docker/etc/httpd/ssl/server.crt:ro", crt_path));
+                        vols.push(format!("{}:/opt/docker/etc/httpd/ssl/server.key:ro", key_path));
                     }
 
                     if let Some(ref mut ports) = apache_service.ports {
-                        ports.push(format!("8081:443"));
+                        ports.push(format!("443:443"));
                     }
                 }
 

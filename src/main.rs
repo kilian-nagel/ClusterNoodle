@@ -61,6 +61,9 @@ enum Commands {
         services: Services,
 
         #[arg(short)]
+        ip_adress: Option<String>,
+
+        #[arg(short)]
         docker_compose_file: Option<String>,
 
         #[arg(short, long)]
@@ -77,7 +80,6 @@ enum Commands {
 
         #[arg(long)]
         ssl_certificate_path_crt: Option<String>,
-
     },
     Stop {},
 }
@@ -108,6 +110,7 @@ fn main() {
             docker_compose_file,
             nodes_number,
             services,
+            ip_adress,
             project_folder_path,
             project_entry_file_path,
             ssl_certificate_path_key,
@@ -156,6 +159,7 @@ fn main() {
                     database: services.database.clone(),
                     traefik: services.traefik.clone(),
                 },
+                ip_adress: ip_adress.clone(),
                 project_folder_path: project_folder_path.clone(),
                 project_entry_file_path: project_entry_file_path.clone(),
                 ssl_certificate_path_key: ssl_certificate_path_key.clone(),
@@ -173,7 +177,7 @@ fn main() {
 
             // Init le cluster
             println!("Intializing cluster...");
-            config.init();
+            config.init(ip_adress);
 
             // Création des clés et connexions en SSH aux nodes
             println!("Generating ssh keys...");
@@ -200,6 +204,7 @@ fn main() {
             let conf_file_path = env.get_conf_file_path();
 
             let mut config = ClusterConfig {
+                ip_adress: Some(String::from("")),
                 nodes_number: 0,
                 nodes_configs: build_cluster_nodes_objects(&conf_file_path),
                 cluster_docker_command: String::from(""),
