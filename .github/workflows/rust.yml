@@ -24,16 +24,23 @@ jobs:
         with:
           ref: ${{ github.ref }}
 
+      # Debug: Print commit hash to make sure we're on the right commit
       - name: Print commit hash
         run: echo "Checked out commit $GITHUB_SHA"
 
+      # Debug: List files at the root of the repo and target/debug folder before cleaning
       - name: List files at the root and target/debug
         run: |
           echo "Listing files at the root directory:"
           ls -la
-          echo "Listing files in target/debug:"
-          ls -la target/debug/
+          if [ -d "target/debug" ]; then
+            echo "Listing files in target/debug:"
+            ls -la target/debug/
+          else
+            echo "target/debug directory does not exist."
+          fi
 
+      # Clean up any old binaries or files
       - name: Remove old build files
         run: |
           # Clean up old build files in the root and target directories
@@ -44,11 +51,19 @@ jobs:
           rm -rf target/*              # Clean up all target build files
           echo "Old files removed."
 
+      # Debug: List files in target/ after cleanup
       - name: List files in target/ after cleanup
         run: |
           echo "Listing files in target directory after cleanup:"
           ls -la target/
+          if [ -d "target/release" ]; then
+            echo "Listing files in target/release after cleanup:"
+            ls -la target/release/
+          else
+            echo "target/release directory does not exist."
+          fi
 
+      # Cache cargo registry to speed up dependencies fetching
       - name: Cache cargo registry
         uses: actions/cache@v4
         with:
@@ -57,22 +72,37 @@ jobs:
             ~/.cargo/git
           key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
 
+      # Clean Build Directory to ensure a fresh start
       - name: Clean Build Directory
         run: cargo clean
 
+      # Debug: List files in target/ after cargo clean
       - name: List files in target/ after cargo clean
         run: |
           echo "Listing files in target directory after cargo clean:"
           ls -la target/
+          if [ -d "target/release" ]; then
+            echo "Listing files in target/release after clean:"
+            ls -la target/release/
+          else
+            echo "target/release directory does not exist."
+          fi
 
+      # Build the project with cargo
       - name: Build
         run: cargo build --release --verbose
 
+      # Debug: List files in target/release after build
       - name: List files in target/release after build
         run: |
           echo "Listing files in target/release directory after build:"
-          ls -la target/release/
+          if [ -d "target/release" ]; then
+            ls -la target/release/
+          else
+            echo "target/release directory does not exist."
+          fi
 
+      # Upload the built artifact to be used in the release job
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
@@ -91,31 +121,42 @@ jobs:
         with:
           ref: ${{ github.ref }}
 
+      # Debug: Print commit hash in release job to verify
       - name: Print commit hash in release job
         run: echo "Release job checked out commit $GITHUB_SHA"
 
+      # Debug: List files in target/release after downloading artifact
       - name: List files in target/ after downloading artifact
         run: |
           echo "Listing files in target/ directory after downloading artifact:"
           ls -la target/
+          if [ -d "target/release" ]; then
+            echo "Listing files in target/release after downloading:"
+            ls -la target/release/
+          else
+            echo "target/release directory does not exist."
+          fi
 
+      # Download the artifact from the build job
       - name: Download artifact
         uses: actions/download-artifact@v4
         with:
           name: ClusterNoodle-linux
           path: ./
 
+      # Debug: List files in the root folder after downloading
       - name: List files in the root folder after downloading
         run: |
           echo "Listing files in the root directory after downloading artifact:"
           ls -la
 
+      # Create Release (Draft) and upload the binary
       - name: Create Draft Release
         uses: softprops/action-gh-release@v1
         with:
           files: ClusterNoodle
-          draft: true   
-          prerelease: true 
+          draft: true   # Make the release a draft so it's not visible to others
+          prerelease: true  # Optionally mark as prerelease
           generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
