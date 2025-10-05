@@ -4,13 +4,13 @@ on:
   push:
     branches:
       - main
-      - 'fix/CI'  # Add the fix/CI branch here to trigger pipeline runs for that branch
+      - 'fix/CI'
     tags:
       - 'v*'
   pull_request:
     branches:
       - main
-      - 'fix/CI'  # Allow pull requests to trigger pipeline on this branch as well
+      - 'fix/CI'
 
 env:
   CARGO_TERM_COLOR: always
@@ -22,7 +22,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.ref }}  # Ensure we checkout the correct ref
+          ref: ${{ github.ref }}
 
       - name: Print commit hash
         run: echo "Checked out commit $GITHUB_SHA"
@@ -77,12 +77,12 @@ jobs:
           name: ClusterNoodle-linux
           path: ./
 
-      - name: Create Release
+      - name: Create Draft Release
         uses: softprops/action-gh-release@v1
         with:
           files: ClusterNoodle
-          draft: false
-          prerelease: false
+          draft: true
+          prerelease: true 
           generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
