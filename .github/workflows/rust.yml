@@ -99,6 +99,15 @@ jobs:
           else
             echo "target/release directory does not exist."
           fi
+        
+      # Execute the built release executable
+      - name: Execute Release Executable
+        run: |
+          # Make sure the file is executable
+          chmod +x target/release/ClusterNoodle
+          # Run the executable
+          echo "Executing the release binary..."
+          ./target/release/ClusterNoodle
 
       # Upload the built artifact to be used in the release job
       - name: Upload artifact
