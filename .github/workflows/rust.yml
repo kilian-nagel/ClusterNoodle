@@ -18,6 +18,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       
+      - name: Print commit hash
+        run: echo "Checked out commit $GITHUB_SHA"
+      
       - name: Cache cargo registry
         uses: actions/cache@v4
         with:
@@ -25,12 +28,6 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
           key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
-      
-      - name: Cache cargo build
-        uses: actions/cache@v4
-        with:
-          path: target
-          key: ${{ runner.os }}-cargo-build-${{ hashFiles('**/Cargo.lock') }}
       
       - name: Build
         run: cargo build --release --verbose
@@ -47,9 +44,14 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+
+
     
     steps:
       - uses: actions/checkout@v4
+
+      - name: Print commit hash
+        run: echo "Checked out commit $GITHUB_SHA"
       
       - name: Download artifact
         uses: actions/download-artifact@v4
