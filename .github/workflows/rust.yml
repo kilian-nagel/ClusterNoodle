@@ -55,7 +55,6 @@ jobs:
       - name: List files in target/ after cleanup
         run: |
           echo "Listing files in target directory after cleanup:"
-          ls -la target/
           if [ -d "target/release" ]; then
             echo "Listing files in target/release after cleanup:"
             ls -la target/release/
@@ -80,7 +79,6 @@ jobs:
       - name: List files in target/ after cargo clean
         run: |
           echo "Listing files in target directory after cargo clean:"
-          ls -la target/
           if [ -d "target/release" ]; then
             echo "Listing files in target/release after clean:"
             ls -la target/release/
@@ -129,7 +127,6 @@ jobs:
       - name: List files in target/ after downloading artifact
         run: |
           echo "Listing files in target/ directory after downloading artifact:"
-          ls -la target/
           if [ -d "target/release" ]; then
             echo "Listing files in target/release after downloading:"
             ls -la target/release/
