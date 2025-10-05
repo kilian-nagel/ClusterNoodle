@@ -17,6 +17,8 @@ jobs:
     
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref }}
       
       - name: Print commit hash
         run: echo "Checked out commit $GITHUB_SHA"
@@ -28,6 +30,9 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
           key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Clean Build Directory
+        run: cargo clean
       
       - name: Build
         run: cargo build --release --verbose
@@ -44,11 +49,11 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-
-
     
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref }}
 
       - name: Print commit hash
         run: echo "Checked out commit $GITHUB_SHA"
