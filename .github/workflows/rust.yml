@@ -2,11 +2,15 @@ name: Rust CI/CD
 
 on:
   push:
-    branches: [ "main" ]
+    branches:
+      - main
+      - 'fix/CI'  # Add the fix/CI branch here to trigger pipeline runs for that branch
     tags:
       - 'v*'
   pull_request:
-    branches: [ "main" ]
+    branches:
+      - main
+      - 'fix/CI'  # Allow pull requests to trigger pipeline on this branch as well
 
 env:
   CARGO_TERM_COLOR: always
@@ -14,15 +18,24 @@ env:
 jobs:
   build:
     runs-on: ubuntu-latest
-    
+
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.ref }}
-      
+          ref: ${{ github.ref }}  # Ensure we checkout the correct ref
+
       - name: Print commit hash
         run: echo "Checked out commit $GITHUB_SHA"
-      
+
+      - name: Remove the main file (if exists) before compiling
+        run: |
+          if [ -f "./main" ]; then
+            echo "Removing the ./main file"
+            rm ./main
+          else
+            echo "No ./main file to remove"
+          fi
+
       - name: Cache cargo registry
         uses: actions/cache@v4
         with:
@@ -33,10 +46,10 @@ jobs:
 
       - name: Clean Build Directory
         run: cargo clean
-      
+
       - name: Build
         run: cargo build --release --verbose
-      
+
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
@@ -49,7 +62,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-    
+
     steps:
       - uses: actions/checkout@v4
         with:
@@ -57,13 +70,13 @@ jobs:
 
       - name: Print commit hash
         run: echo "Checked out commit $GITHUB_SHA"
-      
+
       - name: Download artifact
         uses: actions/download-artifact@v4
         with:
           name: ClusterNoodle-linux
           path: ./
-      
+
       - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
