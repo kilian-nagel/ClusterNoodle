@@ -188,7 +188,7 @@ fn main() {
 
             // Installation de docker sur chaque machine
 
-            println!("Installating docker on target servers...");
+            println!("Installing docker on target servers...");
             config.install_docker();
 
             // On fait rejoindre le cluster à chaque machine
