@@ -2,11 +2,11 @@ name: Rust CI/CD
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ "fix/CI" ]
     tags:
       - 'v*'
   pull_request:
-    branches: [ "main" ]
+    branches: [ "fix/CI" ]
 
 env:
   CARGO_TERM_COLOR: always
