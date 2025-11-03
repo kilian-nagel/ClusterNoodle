@@ -40,7 +40,9 @@ jobs:
           RELEASE_TAG: ${{ github.ref }}
         run: |
           mv Cargo.toml Cargo.toml.orig
-          sed "s/0\\.0\\.0-git/${RELEASE_TAG##*\/v}/" Cargo.toml.orig >Cargo.toml
+          VERSION="${RELEASE_TAG##*\/v}"
+          sed "s/0\.0\.0-git/$VERSION/" Cargo.toml.orig >Cargo.toml
+
       
       - name: Build
         run: cargo build --release --verbose
