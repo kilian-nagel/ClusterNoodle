@@ -2,7 +2,7 @@ name: Rust CI/CD
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ "main", "fix/CI" ]
     tags:
       - 'v*'
   pull_request:
@@ -37,11 +37,29 @@ jobs:
       - name: Build
         run: cargo build --release --verbose
       
+      # Create release package with executable and all necessary files
+      - name: Prepare release package
+        run: |
+          mkdir -p release-package
+          cp target/release/ClusterNoodle release-package/
+          # Copy all source files and dependencies (adjust paths as needed)
+          cp -r src release-package/ || true
+          cp -r assets release-package/ || true
+          cp -r config release-package/ || true
+          cp -r resources release-package/ || true
+          cp Cargo.toml release-package/ || true
+          cp Cargo.lock release-package/ || true
+          cp README.md release-package/ || true
+          # Add any other files/folders your executable needs
+          
+          # Create a tar.gz archive
+          tar -czf ClusterNoodle-linux.tar.gz -C release-package .
+      
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: ClusterNoodle-linux
-          path: target/release/ClusterNoodle
+          path: ClusterNoodle-linux.tar.gz
 
   release:
     needs: build
@@ -58,6 +76,19 @@ jobs:
       - name: Print commit hash
         run: echo "Checked out commit $GITHUB_SHA"
       
+      - name: Check if release should be draft
+        id: check_draft
+        run: |
+          # Check if the tag was created from fix/CI branch
+          BRANCH=$(git branch -r --contains ${{ github.ref }} | grep -E 'origin/fix/CI$' || echo "")
+          if [ -n "$BRANCH" ]; then
+            echo "draft=true" >> $GITHUB_OUTPUT
+            echo "Release will be marked as draft (from fix/CI branch)"
+          else
+            echo "draft=false" >> $GITHUB_OUTPUT
+            echo "Release will be published normally"
+          fi
+      
       - name: Download artifact
         uses: actions/download-artifact@v4
         with:
@@ -67,8 +98,8 @@ jobs:
       - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
-          files: ClusterNoodle
-          draft: false
+          files: ClusterNoodle-linux.tar.gz
+          draft: ${{ steps.check_draft.outputs.draft }}
           prerelease: false
           generate_release_notes: true
         env:
