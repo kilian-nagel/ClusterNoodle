@@ -97,7 +97,8 @@ struct Services {
 }
 
 fn main() {
-    println!("ClusterNoodle v0.1.0");
+    const VERSION: &str = env!("CARGO_PKG_VERSION");
+    println!("ClusterNoodle {}", VERSION);
 
     // Initialiser les ressources nécessaires pour l'application
     init_app_config_folder();
