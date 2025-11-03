@@ -29,8 +29,10 @@ echo "Setting up config folder in $CONFIG_PATH"
 sudo mkdir -p $CONFIG_PATH
 
 if ! [ -z "$CONFIG_FILE_PATH" ] && ! [ -e "$CONFIG_FILE_PATH" ]; then
-    sudo touch "$CONFIG_PATH/conf.cluster_noodle"
+    sudo touch "$CONFIG_FILE_PATH"
+    sudo touch "$CONFIG_PATH/app.env"
 fi
+sudo chown -R "$(whoami)" $CONFIG_PATH
 
 echo "Setting up executable..."
 sudo chmod +x "$BIN_PATH"
