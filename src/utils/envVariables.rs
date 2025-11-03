@@ -13,7 +13,6 @@ impl EnvVariables {
     }
 
     pub fn get_conf_file_path(&self) -> String {
-        println!("{}/conf.cluster_noodle", &self.get_conf_path());
         return format!("{}/conf.cluster_noodle", self.get_conf_path());
     }
 

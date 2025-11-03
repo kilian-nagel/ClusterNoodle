@@ -191,17 +191,6 @@ pub fn deploy_services(docker_file_path_param: Option<&str>) {
     let env = EnvVariables {};
     let mut docker_file_path = String::from(env.get_docker_file_path());
 
-
-    if let Some(path) = docker_file_path_param {
-        let docker_file_path_absolute =
-            path::absolute(path).expect("Failed to convert relative path to absolute");
-
-        docker_file_path = docker_file_path_absolute
-            .to_str()
-            .expect("failed to convert path to string")
-            .to_string(); // <-- take ownership
-    }
-
     let mut cmd = Command::new("docker");
     cmd.arg("stack")
         .arg("deploy")

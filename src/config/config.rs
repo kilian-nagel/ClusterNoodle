@@ -25,20 +25,6 @@ pub struct ClusterConfig {
 
 pub fn init_app_config_folder() {
     let env = EnvVariables {};
-
-    if let Err(e) = fs::create_dir_all(env.get_conf_path()) {
-        panic!(
-            "Erreur lors de la création du dossier de config de l'application: {}",
-            e
-        );
-    }
-
-    OpenOptions::new()
-        .write(true)
-        .create(true) // only create if file does NOT exist
-        .open(env.get_env_file_path())
-        .unwrap_or_else(|e| panic!("Erreur lors de la création du fichier .env : {}", e));
-
     dotenvy::from_path(&env.get_env_file_path()).unwrap();
 }
 

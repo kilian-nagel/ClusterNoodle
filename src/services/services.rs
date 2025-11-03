@@ -400,6 +400,12 @@ pub fn generate_docker_file(config: &ClusterConfig) -> io::Result<()> {
 
 pub fn create_docker_file(dockerfile_content: &str) -> io::Result<()> {
     let env = EnvVariables {};
-    fs::write(&env.get_docker_file_path(), dockerfile_content)?;
+    match fs::write(&env.get_docker_file_path(), dockerfile_content) {
+        Ok(ok) => ok,
+        Err(err) => {
+            println!("Error while creating : docker-compose.file : {}", err);
+            return Err(err.into());
+        },
+    }
     Ok(())
 }
