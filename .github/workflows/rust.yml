@@ -33,10 +33,7 @@ jobs:
 
       - name: Clean Build Directory
         run: cargo clean
-      
-      - name: Build
-        run: cargo build --release --verbose
-        
+
       - name: Set Cargo.toml version
         shell: bash
         env:
@@ -46,6 +43,9 @@ jobs:
           sed "s/0\\.0\\.0-git/${RELEASE_TAG##*\/v}/" Cargo.toml.orig >Cargo.toml
           mv Cargo.lock Cargo.lock.orig
           sed "s/0\\.0\\.0-git/${RELEASE_TAG##*\/v}/" Cargo.lock.orig >Cargo.lock
+      
+      - name: Build
+        run: cargo build --release --verbose
       
       # Create release package with executable and all necessary files
       - name: Prepare release package
