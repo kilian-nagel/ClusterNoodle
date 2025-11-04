@@ -42,7 +42,6 @@ jobs:
           mv Cargo.toml Cargo.toml.orig
           VERSION="${RELEASE_TAG##*\/v}"
           sed "s|0\.0\.0-git|$VERSION|" Cargo.toml.orig >Cargo.toml
-
     
       - name: Build
         run: cargo build --release --verbose
