@@ -126,6 +126,7 @@ impl ClusterConfig {
 
             match command::run_with_timeout(cmd, Duration::from_secs(1000)) {
                 Ok(Some(output)) => {
+                    println!("{}", String::from_utf8_lossy(&output.stdout));
                     if output.status.success() {
                         println!("{} joined the cluster", target);
                     } else {
@@ -155,6 +156,7 @@ impl ClusterConfig {
 
             match command::run_with_timeout(cmd, Duration::from_secs(1000)) {
                 Ok(Some(output)) => {
+                    println!("{}", String::from_utf8_lossy(&output.stdout));
                     if output.status.success() {
                         println!("{} left the cluster", target);
                     } else {
@@ -180,6 +182,7 @@ pub fn destroy_cluster() -> () {
         .output()
         .unwrap();
 
+    println!("{}", String::from_utf8_lossy(&output.stdout));
     if !output.status.success() {
         eprintln!("Error:");
         eprintln!("{}", String::from_utf8_lossy(&output.stderr));
@@ -200,6 +203,7 @@ pub fn deploy_services(docker_file_path_param: Option<&str>) {
 
     match command::run_with_timeout(cmd, Duration::from_secs(1000)) {
         Ok(Some(output)) => {
+            println!("{}", String::from_utf8_lossy(&output.stdout));
             if output.status.success() {
                 println!("Services deployed.");
             } else {
