@@ -53,9 +53,9 @@ jobs:
           cp target/release/ClusterNoodle release-package/
           # Copy all source files and dependencies (adjust paths as needed)
           cp -r src release-package/ || true
-          cp -r assets release-package/ || true
           cp -r config release-package/ || true
           cp -r resources release-package/ || true
+          cp -r scripts release-package/ || true
           cp Cargo.toml release-package/ || true
           cp Cargo.lock release-package/ || true
           cp README.md release-package/ || true

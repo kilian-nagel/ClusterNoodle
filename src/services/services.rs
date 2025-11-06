@@ -133,19 +133,31 @@ impl<'a> DockerComposeBuilder<'a> {
                 };
 
                 if let Some(ref mut volumes) = nginx_service.volumes && self.cluster_config.project_folder_path.is_some() {
+                    let absolute_path = fs::canonicalize(self.cluster_config.project_folder_path.clone().unwrap()).unwrap();
+                    let usable_path = absolute_path.to_str().unwrap();
                     // Volume qui concerne le code à exécuter dans le serveur Nginx.
-                    volumes.push(format!("{}:/var/www/html", self.cluster_config.project_folder_path.clone().unwrap_or(String::from(""))));
+                    volumes.push(format!("{}:/var/www/html",usable_path));
                 };
 
-                if let Some(crt_path) =     &self.cluster_config.ssl_certificate_path_crt  && let Some(key_path) = &self.cluster_config.ssl_certificate_path_key{
+                if let Some(crt_path) = &self.cluster_config.ssl_certificate_path_crt  && let Some(key_path) = &self.cluster_config.ssl_certificate_path_key{
+                    let crt_absolute_path = fs::canonicalize(crt_path).unwrap();
+                    let key_absolute_path = fs::canonicalize(key_path).unwrap();
+
+                    let crt_path_usable = crt_absolute_path.to_str().unwrap();
+                    let key_path_usable = key_absolute_path.to_str().unwrap();
+
                     if let Some(ref mut vols) = nginx_service.volumes {
-                        vols.push(format!("{}:/etc/nginx/ssl/crt.pem:ro", crt_path));
-                        vols.push(format!("{}:/etc/nginx/ssl/key.pem:ro", key_path));
+                        vols.push(format!("{}:/etc/nginx/ssl/crt.pem:ro", crt_path_usable));
+                        vols.push(format!("{}:/etc/nginx/ssl/key.pem:ro", key_path_usable));
                     }
 
                     if let Some(ref mut ports) = nginx_service.ports {
                         ports.push(format!("443:443"));
                     }
+                } else if self.cluster_config.ssl_certificate_path_crt.is_some() && self.cluster_config.ssl_certificate_path_key.is_none() {
+                    println!("Seul le certificat TLS a été renseigné il manque la clé (--ssl_certificate_path_key) !");
+                } else if self.cluster_config.ssl_certificate_path_key.is_some() && self.cluster_config.ssl_certificate_path_crt.is_none() {
+                    println!("Seul la clé TLS a été renseignée il manque le certificat (--ssl_certificate_path_crt)!");
                 }
 
                 if self.cluster_config.services.traefik {
@@ -161,7 +173,6 @@ impl<'a> DockerComposeBuilder<'a> {
             }
 
             Some(ServerType::Apache) => {
-
                 // Volume qui concerne la config du serveur Apache.
                 let vhost_path_volume = format!(
                     "{}:/opt/docker/etc/httpd/vhost.conf:ro",
@@ -176,22 +187,34 @@ impl<'a> DockerComposeBuilder<'a> {
                     volumes: Some(vec![vhost_path_volume]),
                     environment: None,
                     depends_on: None,
-                };
+                };  
 
                 if let Some(ref mut volumes) = apache_service.volumes && self.cluster_config.project_folder_path.is_some() {
                     // Volume qui concerne le code à exécuter dans le serveur Apache.
-                    volumes.push(format!("{}:/app", self.cluster_config.project_folder_path.clone().unwrap_or(String::from(""))));
+                    let app_path = fs::canonicalize(self.cluster_config.project_folder_path.clone().unwrap()).unwrap();
+                    let app_path_usable = app_path.to_str().unwrap();
+                    volumes.push(format!("{}:/app", app_path_usable));
                 };
 
                 if let Some(crt_path) = &self.cluster_config.ssl_certificate_path_crt  && let Some(key_path) = &self.cluster_config.ssl_certificate_path_key{
+                    let crt_absolute_path = fs::canonicalize(crt_path).unwrap();
+                    let key_absolute_path = fs::canonicalize(key_path).unwrap();
+
+                    let crt_path_usable = crt_absolute_path.to_str().unwrap();
+                    let key_path_usable = key_absolute_path.to_str().unwrap();
+
                     if let Some(ref mut vols) = apache_service.volumes {
-                        vols.push(format!("{}:/opt/docker/etc/httpd/ssl/server.crt:ro", crt_path));
-                        vols.push(format!("{}:/opt/docker/etc/httpd/ssl/server.key:ro", key_path));
+                        vols.push(format!("{}:/opt/docker/etc/httpd/ssl/server.crt:ro", crt_path_usable));
+                        vols.push(format!("{}:/opt/docker/etc/httpd/ssl/server.key:ro",  key_path_usable));
                     }
 
                     if let Some(ref mut ports) = apache_service.ports {
                         ports.push(format!("443:443"));
-                    }
+                    }   
+                }  else if self.cluster_config.ssl_certificate_path_crt.is_some() && self.cluster_config.ssl_certificate_path_key.is_none() {
+                    println!("Seul le certificat TLS a été renseigné il manque la clé (--ssl_certificate_path_key) !");
+                } else if self.cluster_config.ssl_certificate_path_key.is_some() && self.cluster_config.ssl_certificate_path_crt.is_none() {
+                    println!("Seul la clé TLS a été renseignée il manque le certificat (--ssl_certificate_path_crt)!");
                 }
 
                 if self.cluster_config.services.traefik {

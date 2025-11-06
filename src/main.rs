@@ -54,9 +54,6 @@ struct Cli {
 #[derive(Subcommand)]
 enum Commands {
     Start {
-        #[arg(short)]
-        nodes_number: u16,
-
         #[command(flatten)]
         services: Services,
 
@@ -109,7 +106,6 @@ fn main() {
     match &cli.command {
         Some(Commands::Start {
             docker_compose_file,
-            nodes_number,
             services,
             ip_adress,
             project_folder_path,
@@ -152,7 +148,7 @@ fn main() {
             let nodes_configs = build_cluster_nodes_objects(&conf_file_path);
 
             let mut config = ClusterConfig {
-                nodes_number: *nodes_number,
+                nodes_number: 0,
                 nodes_configs: nodes_configs,
                 cluster_docker_command: String::from(""),
                 services: crate::services::services::Services {

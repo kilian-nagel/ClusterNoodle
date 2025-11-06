@@ -21,6 +21,6 @@ impl EnvVariables {
     }
 
     pub fn get_usable_ip_script_path(&self) -> String {
-        return format!("{}/scripts/usable_ip_adress.sh", env!("CARGO_MANIFEST_DIR"))
+        return String::from("/opt/ClusterNoodle/scripts/usable_ip_adress.sh");
     }
 }
