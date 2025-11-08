@@ -1,4 +1,4 @@
-use crate::ClusterConfig;
+use crate::{ClusterConfig, docker};
 use crate::utils::command;
 use crate::utils::envVariables::EnvVariables;
 use std::path;
@@ -109,6 +109,32 @@ impl ClusterConfig {
                 }
                 Ok(None) => println!("Timeout for {}", target),
                 Err(e) => println!("Execution failed on {}: {}", target, e),
+            }
+        }
+    }
+
+    pub fn pull_docker_images(&self){
+        for docker_image in &self.docker_images {
+            let mut cmd = Command::new("docker");
+            cmd.arg("pull");
+            cmd.arg(docker_image);
+            println!("pulling docker image : {}", docker_image);
+
+            match command::run_with_timeout(cmd, Duration::from_secs(1000)) {
+                Ok(Some(output)) => {
+                    println!("{}", String::from_utf8_lossy(&output.stdout));
+                    if output.status.success() {
+                        println!("Docker image pulled");
+                    } else {
+                        println!(
+                            "Failed to pull following docker image : {}. Error : {}",
+                            &docker_image,
+                            String::from_utf8_lossy(&output.stderr)
+                        );
+                    }
+                }
+                Ok(None) => println!("Timeout while pulling following docker image : {}", docker_image),
+                Err(e) => println!("Failed to pull following docker image : {}. Error : {}", docker_image, e),
             }
         }
     }
