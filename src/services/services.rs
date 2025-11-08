@@ -67,7 +67,7 @@ struct DockerCompose {
 }
 
 struct DockerComposeBuilder<'a> {
-    cluster_config: &'a ClusterConfig,
+    cluster_config: &'a mut ClusterConfig,
     volumes: HashMap<String, serde_yaml::Value>,
     compose: DockerCompose,
 }
@@ -114,7 +114,8 @@ impl<'a> DockerComposeBuilder<'a> {
     }
 
     fn add_server_service(&mut self) {
-        match &self.cluster_config.services.server {
+        let server_type = self.cluster_config.services.server.clone();
+        match server_type {
             Some(ServerType::Nginx) => {
                 // Volume qui concerne la config du serveur Nginx.
                 let conf_volume = format!(
@@ -131,6 +132,8 @@ impl<'a> DockerComposeBuilder<'a> {
                     environment: None,
                     depends_on: None,
                 };
+
+                self.cluster_config.docker_images.push(String::from("trafex/php-nginx:3.9.0"));
 
                 if let Some(ref mut volumes) = nginx_service.volumes && self.cluster_config.project_folder_path.is_some() {
                     let absolute_path = fs::canonicalize(self.cluster_config.project_folder_path.clone().unwrap()).unwrap();
@@ -189,6 +192,8 @@ impl<'a> DockerComposeBuilder<'a> {
                     depends_on: None,
                 };  
 
+                self.cluster_config.docker_images.push(String::from("webdevops/php-apache:8.4"));
+
                 if let Some(ref mut volumes) = apache_service.volumes && self.cluster_config.project_folder_path.is_some() {
                     // Volume qui concerne le code à exécuter dans le serveur Apache.
                     let app_path = fs::canonicalize(self.cluster_config.project_folder_path.clone().unwrap()).unwrap();
@@ -241,6 +246,8 @@ impl<'a> DockerComposeBuilder<'a> {
                     depends_on: None,
                 };
 
+                self.cluster_config.docker_images.push(String::from("node:22"));
+
                 if self.cluster_config.services.traefik {
                     node_service.labels = Some(vec![
                         "traefik.enable=true".to_string(),
@@ -290,6 +297,8 @@ impl<'a> DockerComposeBuilder<'a> {
                     depends_on: None,
                 };
 
+                self.cluster_config.docker_images.push(String::from("mysql:8.4"));
+
                 self.compose
                     .services
                     .insert("mysql".to_string(), mysql_service);
@@ -310,6 +319,8 @@ impl<'a> DockerComposeBuilder<'a> {
                     ports: None,
                     volumes: None,
                 };
+
+                self.cluster_config.docker_images.push(String::from("prom/mysqld-exporter:latest"));
 
                 if self.cluster_config.services.traefik {
                     mysqld_exporter.labels = Some(vec![
@@ -350,6 +361,8 @@ impl<'a> DockerComposeBuilder<'a> {
                     depends_on: None,
                 };
 
+                self.cluster_config.docker_images.push("postgres:15".to_owned());
+
                 self.compose
                     .services
                     .insert("postgres".to_string(), postgres_service);
@@ -378,6 +391,8 @@ impl<'a> DockerComposeBuilder<'a> {
                     depends_on: None,
                 };
 
+                self.cluster_config.docker_images.push("mongo:7".to_owned());
+
                 self.compose
                     .services
                     .insert("mongo".to_string(), mongo_service);
@@ -395,10 +410,10 @@ impl<'a> DockerComposeBuilder<'a> {
     }
 }
 
-pub fn generate_docker_file(config: &ClusterConfig) -> io::Result<()> {
+pub fn generate_docker_file(config: &mut ClusterConfig) -> io::Result<()> {
     // On met à jour le fichier de config en fonction des services sélectionnées
     let mut docker_compose_builder = DockerComposeBuilder {
-        cluster_config: &config,
+        cluster_config: config,
         volumes: HashMap::new(),
         compose: DockerCompose {
             version: "3.9".to_string(),

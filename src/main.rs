@@ -160,14 +160,15 @@ fn main() {
                 project_folder_path: project_folder_path.clone(),
                 project_entry_file_path: project_entry_file_path.clone(),
                 ssl_certificate_path_key: ssl_certificate_path_key.clone(),
-                ssl_certificate_path_crt: ssl_certificate_path_crt.clone()
+                ssl_certificate_path_crt: ssl_certificate_path_crt.clone(),
+                docker_images: vec![]
             };
 
             // On ne génère le fichier doccaptker_compose uniquement si l'utilisateur n'a pas renseigné
             // le sien.
             if !docker_compose_file.is_some() && !*no_rebuild_docker_compose_file  {
                 println!("Generating docker-compose file...");
-                if let Err(e) = generate_docker_file(&config) {
+                if let Err(e) = generate_docker_file(&mut config) {
                     eprintln!("Error generating docker-compose file: {}", e);
                 }
             }
@@ -192,6 +193,9 @@ fn main() {
             println!("Target servers are joining the cluster...");
             config.join_cluster();
 
+            println!("Pulling docker images... This may take a while.");
+            config.pull_docker_images();
+
             // Déploiement des services docker
             println!("Deploying services to the cluster...");
             cluster::deploy_services(docker_compose_file.as_deref());
@@ -214,6 +218,7 @@ fn main() {
                 project_entry_file_path: Some(String::from("")),
                 ssl_certificate_path_key: Some(String::from("")),
                 ssl_certificate_path_crt: Some(String::from("")),
+                docker_images: vec![]
             };
 
             println!("Stopping the cluster...");

@@ -4,3 +4,4 @@ comprehension.txt
 main
 Cargo.lock
 conf.cluster_noodle
+**/node_modules/*

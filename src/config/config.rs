@@ -3,7 +3,6 @@ use crate::fs::path_exists;
 use crate::services::services::Services;
 use crate::utils::envVariables::EnvVariables;
 use std::fs;
-use std::fs::OpenOptions;
 
 pub struct NodeConfig {
     pub ip: String,
@@ -21,6 +20,7 @@ pub struct ClusterConfig {
     pub ssl_certificate_path_key: Option<String>,
     pub ssl_certificate_path_crt: Option<String>,
     pub services: Services,
+    pub docker_images: Vec<String>
 }
 
 pub fn init_app_config_folder() {
