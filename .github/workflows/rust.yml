@@ -92,12 +92,15 @@ jobs:
 
           if ! echo "${{ github.ref }}" | grep -q 'v-dashboard-frontend-'; then
             echo "Le tag du frontend du dashboard est incorrect : ${GITHUB_REF}. Il devrait commencer par : 'v-dashboard-frontend-' Exemple : v-dashboard-frontend-1.0.1"
-            exit 1
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            exit 0
           fi
+          
 
           if [ -z "${VERSION}" ]; then
             echo "Aucun numéro de version dans le tag : ${{ github.ref }}. Il devrait contenir : v1.0.1 par exemple."
-            exit 1
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            exit 0          
           fi
 
           echo "release_tag=$VERSION" >> "$GITHUB_OUTPUT"
@@ -183,12 +186,14 @@ jobs:
 
           if ! echo "${{ github.ref }}" | grep -q 'v-dashboard-backend-'; then
             echo "Le tag du backend du dashboard est incorrect : ${{ github.ref }}. Il devrait commencer par : 'v-dashboard-backend-' Exemple : v-dashboard-backend-1.0.1"
-            exit 1
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            exit 0
           fi
 
           if [ -z "${VERSION}" ]; then
             echo "Aucun numéro de version trouvé dans le tag : ${{ github.ref }}. (Il devrait contenir : 1.0.2 par exemple)"
-            exit 1
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            exit 0
           fi
           
           # Vérifie si le tag de version que l'on veut release existe déjà parmi les tags du repo docker
