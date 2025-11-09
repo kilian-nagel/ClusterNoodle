@@ -75,10 +75,39 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       frontend_changed: ${{ steps.check.outputs.changed }}
+      release_tag: ${{ steps.version.outputs.release_tag }}    
+    env:
+      DOCKER_IMAGE: ${{ vars.DOCKER_DASHBOARD_FRONTEND_IMAGE_NAME }}
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0 # full history for git diff
+
+      - name: Check if version tag already exists in docker repo
+        id: version
+        run: |
+          VERSION_TAGS="$(curl 'https://hub.docker.com/v2/repositories/nagelkilian/${{ env.DOCKER_IMAGE }}/tags?page=1&page_size=1000' -H 'Content-Type: application/json' | jq '.results' | jq '.[]' | jq '.name')"
+          VERSION="${{ github.ref }}"
+          VERSION="${VERSION##*\/v-dashboard-frontend-}"
+
+          if ! echo "${{ github.ref }}" | grep -q 'v-dashboard-frontend-'; then
+            echo "Le tag du frontend du dashboard est incorrect : ${GITHUB_REF}. Il devrait commencer par : 'v-dashboard-frontend-' Exemple : v-dashboard-frontend-1.0.1"
+            exit 1
+          fi
+
+          if [ -z "${VERSION}" ]; then
+            echo "Aucun numéro de version dans le tag : ${{ github.ref }}. Il devrait contenir : v1.0.1 par exemple."
+            exit 1
+          fi
+
+          echo "release_tag=$VERSION" >> "$GITHUB_OUTPUT"
+          
+          # Vérifie si le tag de version que l'on veut release existe déjà parmi les tags du repo docker
+          if echo "$VERSION_TAGS" | grep -q "\"$VERSION\""; then
+              echo "ERROR: v${VERSION} version already exists in your docker repo for ${{ env.DOCKER_IMAGE }}"
+              echo "changed=false" >> "$GITHUB_OUTPUT"
+              exit 1
+          fi 
 
       - id: check
         name: Detect frontend changes
@@ -109,6 +138,7 @@ jobs:
       DOCKER_IMAGE: ${{ vars.DOCKER_DASHBOARD_FRONTEND_IMAGE_NAME }}
       DOCKER_USER: nagelkilian
       DOCKER_TOKEN: ${{ secrets.DOCKER_TOKEN }}
+      TAG: ${{ needs.check-frontend-changes.outputs.release_tag }}
 
     steps:
       - uses: actions/checkout@v4
@@ -127,7 +157,7 @@ jobs:
         with:
           context: ${{ env.FRONTEND_PATH }}
           push: true
-          tags: ${{ env.DOCKER_IMAGE }}
+          tags: "${{ env.DOCKER_IMAGE }}:v${{ env.TAG }}"
           cache-from: type=gha
           cache-to: type=gha,mode=max
             
@@ -135,10 +165,38 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       backend_changed: ${{ steps.check.outputs.changed }}
+      release_tag: ${{ steps.check.outputs.release_tag }}
+    env:
+      DOCKER_IMAGE: ${{ vars.DOCKER_DASHBOARD_BACKEND_IMAGE_NAME }}
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0 # full history for git diff
+
+      - name: Check if version tag already exists in docker repo
+        id: version
+        run: |
+          VERSION_TAGS="$(curl 'https://hub.docker.com/v2/repositories/nagelkilian/${{ env.DOCKER_IMAGE }}/tags?page=1&page_size=1000' -H 'Content-Type: application/json' | jq '.results' | jq '.[]' | jq '.name')"
+          VERSION="${{ github.ref }}"
+          VERSION="${VERSION##*\/v-dashboard-backend-}"
+          echo "release_tag=$VERSION" >> "$GITHUB_OUTPUT"
+
+          if ! echo "${{ github.ref }}" | grep -q 'v-dashboard-backend-'; then
+            echo "Le tag du backend du dashboard est incorrect : ${{ github.ref }}. Il devrait commencer par : 'v-dashboard-backend-' Exemple : v-dashboard-backend-1.0.1"
+            exit 1
+          fi
+
+          if [ -z "${VERSION}" ]; then
+            echo "Aucun numéro de version trouvé dans le tag : ${{ github.ref }}. (Il devrait contenir : 1.0.2 par exemple)"
+            exit 1
+          fi
+          
+          # Vérifie si le tag de version que l'on veut release existe déjà parmi les tags du repo docker
+          if echo "$VERSION_TAGS" | grep -q "\"$VERSION\""; then
+              echo "ERROR: v${VERSION} version already exists in your docker repo for ${{ env.DOCKER_IMAGE }}"
+              echo "changed=false" >> "$GITHUB_OUTPUT"
+              exit 1
+          fi 
 
       - id: check
         name: Detect frontend changes
@@ -165,10 +223,11 @@ jobs:
     runs-on: ubuntu-latest
 
     env:
-      BACKEND_PATH: src/services/dashboard/frontend
+      BACKEND_PATH: src/services/dashboard/backend
       DOCKER_IMAGE: ${{ vars.DOCKER_DASHBOARD_BACKEND_IMAGE_NAME }}
       DOCKER_USER: nagelkilian
       DOCKER_TOKEN: ${{ secrets.DOCKER_TOKEN }}
+      TAG: ${{ needs.check-backend-changes.outputs.release_tag }}
 
     steps:
       - uses: actions/checkout@v4
@@ -187,7 +246,7 @@ jobs:
         with:
           context: ${{ env.BACKEND_PATH }}
           push: true
-          tags: ${{ env.DOCKER_IMAGE }}
+          tags: "${{ env.DOCKER_IMAGE }}:v${{ env.TAG }}"
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
