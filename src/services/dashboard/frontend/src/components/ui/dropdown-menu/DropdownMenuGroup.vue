@@ -8,5 +8,5 @@ const props = defineProps<DropdownMenuGroupProps>()
 <template>
   <DropdownMenuGroup v-bind="props">
     <slot />
-  </DropdownMenuGroup> 
+  </DropdownMenuGroup>
 </template>  
