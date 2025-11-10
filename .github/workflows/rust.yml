@@ -89,6 +89,7 @@ jobs:
           VERSION_TAGS="$(curl 'https://hub.docker.com/v2/repositories/nagelkilian/${{ env.DOCKER_IMAGE }}/tags?page=1&page_size=1000' -H 'Content-Type: application/json' | jq '.results' | jq '.[]' | jq '.name')"
           VERSION="${{ github.ref }}"
           VERSION="${VERSION##*\/v-dashboard-frontend-}"
+          echo "release_tag=$VERSION" >> "$GITHUB_OUTPUT"
 
           if ! echo "${{ github.ref }}" | grep -q 'v-dashboard-frontend-'; then
             echo "Le tag du frontend du dashboard est incorrect : ${GITHUB_REF}. Il devrait commencer par : 'v-dashboard-frontend-' Exemple : v-dashboard-frontend-1.0.1"
@@ -102,7 +103,6 @@ jobs:
             exit 0          
           fi
 
-          echo "release_tag=$VERSION" >> "$GITHUB_OUTPUT"
           
           # Vérifie si le tag de version que l'on veut release existe déjà parmi les tags du repo docker
           if echo "$VERSION_TAGS" | grep -q "\"$VERSION\""; then
@@ -132,6 +132,8 @@ jobs:
               echo "changed=true" >> "$GITHUB_OUTPUT"
             fi
           fi
+
+          echo "release_tag=${{ steps.version.outputs.release_tag }}" >> "$GITHUB_OUTPUT"
 
   build-dashboard-frontend:
     needs: [check-frontend-changes]
