@@ -245,6 +245,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: hi
+        run: |
+          echo "TAG : ${{ env.TAG }}"
+          echo "needs.check-backend-changes.outputs.release_tag: ${{ needs.check-backend-changes.outputs.release_tag }}"
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
@@ -253,6 +258,7 @@ jobs:
         with:
           username: ${{ env.DOCKER_USER }}
           password: ${{ env.DOCKER_TOKEN }}
+        
 
       - name: Build & push Docker image (cached)
         uses: docker/build-push-action@v6
