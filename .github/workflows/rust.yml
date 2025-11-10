@@ -211,19 +211,22 @@ jobs:
               exit 1
           fi 
 
+          echo "changed=true" >> "$GITHUB_OUTPUT"
+
       - id: check
         name: Detect frontend changes
+        if: ${{ steps.version.outputs.changed == 'true' }}
         run: |
           # Compare current HEAD with previous commit or base branch
           if [ "${{ github.event_name }}" = "pull_request" ]; then
             git fetch origin ${{ github.base_ref }} --depth=1
-            if git diff --quiet origin/${{ github.base_ref }}...HEAD -- src/services/dashboard/frontend/; then
+            if git diff --quiet origin/${{ github.base_ref }}...HEAD -- src/services/dashboard/backend/; then
               echo "changed=false" >> "$GITHUB_OUTPUT"
             else
               echo "changed=true" >> "$GITHUB_OUTPUT"
             fi
           else
-            if git diff --quiet HEAD^ HEAD -- src/services/dashboard/frontend/; then
+            if git diff --quiet HEAD^ HEAD -- src/services/dashboard/backend/; then
               echo "changed=false" >> "$GITHUB_OUTPUT"
             else
               echo "changed=true" >> "$GITHUB_OUTPUT"
