@@ -142,9 +142,13 @@ jobs:
       DOCKER_USER: nagelkilian
       DOCKER_TOKEN: ${{ secrets.DOCKER_TOKEN }}
       TAG: ${{ needs.check-frontend-changes.outputs.release_tag }}
-
+      FRONTEND_CHANGED: ${{ needs.check-frontend-changes.outputs.frontend_changed }}
     steps:
       - uses: actions/checkout@v4
+
+      - name: hi
+        run: |
+          echo "$FRONTEND_CHANGED"
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
