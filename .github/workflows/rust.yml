@@ -112,7 +112,10 @@ jobs:
               exit 1
           fi 
 
+          echo "changed=true" >> "$GITHUB_OUTPUT"
+
       - id: check
+        if: needs.check-backend-changes.outputs.frontend_changed == 'true'
         name: Detect frontend changes
         run: |
           # Compare current HEAD with previous commit or base branch
@@ -137,7 +140,7 @@ jobs:
     runs-on: ubuntu-latest
 
     env:
-      FRONTEND_PATH: src/services/dashboard/frontend
+      FRONTEND_PATH: src/services/dashboard/frontend  
       DOCKER_IMAGE: ${{ vars.DOCKER_DASHBOARD_FRONTEND_IMAGE_NAME }}
       DOCKER_USER: nagelkilian
       DOCKER_TOKEN: ${{ secrets.DOCKER_TOKEN }}
