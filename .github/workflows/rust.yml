@@ -93,7 +93,7 @@ jobs:
           if ! echo "${{ github.ref }}" | grep -q 'v-dashboard-frontend-'; then
             echo "Le tag du frontend du dashboard est incorrect : ${GITHUB_REF}. Il devrait commencer par : 'v-dashboard-frontend-' Exemple : v-dashboard-frontend-1.0.1"
             echo "changed=false" >> "$GITHUB_OUTPUT"
-            echo "${{ steps.version.outputs.release_tag }}"
+            echo "${{ steps.check.outputs.changed }}"
             exit 0
           fi
 
