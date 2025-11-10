@@ -9,4 +9,4 @@ const props = defineProps<DropdownMenuGroupProps>()
   <DropdownMenuGroup v-bind="props">
     <slot />
   </DropdownMenuGroup>
-</template>
+</template>  
