@@ -75,7 +75,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       frontend_changed: ${{ steps.check.outputs.changed }}
-      release_tag: ${{ steps.version.outputs.release_tag }}    
+      release_tag: ${{ steps.version.outputs.release_tag }}
     env:
       DOCKER_IMAGE: ${{ vars.DOCKER_DASHBOARD_FRONTEND_IMAGE_NAME }}
     steps:
@@ -86,39 +86,37 @@ jobs:
       - name: Check if version tag already exists in docker repo
         id: version
         run: |
-          VERSION_TAGS="$(curl 'https://hub.docker.com/v2/repositories/nagelkilian/${{ env.DOCKER_IMAGE }}/tags?page=1&page_size=1000' -H 'Content-Type: application/json' | jq '.results' | jq '.[]' | jq '.name')"
+          VERSION_TAGS="$(curl 'https://hub.docker.com/v2/repositories/nagelkilian/${{ env.DOCKER_IMAGE }}/tags?page=1&page_size=1000' \
+            -H 'Content-Type: application/json' | jq '.results[].name')"
           VERSION="${{ github.ref }}"
           VERSION="${VERSION##*\/v-dashboard-frontend-}"
 
           if ! echo "${{ github.ref }}" | grep -q 'v-dashboard-frontend-'; then
-            echo "Le tag du frontend du dashboard est incorrect : ${GITHUB_REF}. Il devrait commencer par : 'v-dashboard-frontend-' Exemple : v-dashboard-frontend-1.0.1"
+            echo "Tag incorrect: ${GITHUB_REF}"
             echo "changed=false" >> "$GITHUB_OUTPUT"
-            echo "${{ steps.check.outputs.changed }}"
             exit 0
           fi
 
           if [ -z "${VERSION}" ]; then
-            echo "Aucun numéro de version dans le tag : ${{ github.ref }}. Il devrait contenir : v1.0.1 par exemple."
+            echo "No version found in tag"
             echo "changed=false" >> "$GITHUB_OUTPUT"
-            exit 0          
+            exit 0
           fi
 
           echo "release_tag=$VERSION" >> "$GITHUB_OUTPUT"
-          
-          # Vérifie si le tag de version que l'on veut release existe déjà parmi les tags du repo docker
+
           if echo "$VERSION_TAGS" | grep -q "\"$VERSION\""; then
-              echo "ERROR: v${VERSION} version already exists in your docker repo for ${{ env.DOCKER_IMAGE }}"
-              echo "changed=false" >> "$GITHUB_OUTPUT"
-              exit 1
-          fi 
+            echo "ERROR: v${VERSION} version already exists in docker repo"
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            exit 1
+          fi
 
           echo "changed=true" >> "$GITHUB_OUTPUT"
 
       - id: check
-        if: needs.check-backend-changes.outputs.frontend_changed == 'true'
         name: Detect frontend changes
+        if: ${{ steps.version.outputs.changed == 'true' }}
         run: |
-          # Compare current HEAD with previous commit or base branch
           if [ "${{ github.event_name }}" = "pull_request" ]; then
             git fetch origin ${{ github.base_ref }} --depth=1
             if git diff --quiet origin/${{ github.base_ref }}...HEAD -- src/services/dashboard/frontend/; then
@@ -133,6 +131,7 @@ jobs:
               echo "changed=true" >> "$GITHUB_OUTPUT"
             fi
           fi
+
 
   build-dashboard-frontend:
     needs: [check-frontend-changes]
