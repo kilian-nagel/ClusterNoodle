@@ -15,6 +15,8 @@ jobs:
   build-cli:
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/v') && !startsWith(github.ref, 'refs/tags/v-')
+    permissions:
+      contents: read
     
     steps:
       - uses: actions/checkout@v4
@@ -75,7 +77,9 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       frontend_changed: ${{ steps.check.outputs.changed }}
-      release_tag: ${{ steps.version.outputs.release_tag }}    
+      release_tag: ${{ steps.version.outputs.release_tag }}   
+    permissions:
+      contents: read 
     env:
       DOCKER_IMAGE: ${{ vars.DOCKER_DASHBOARD_FRONTEND_IMAGE_NAME }}
     steps:
@@ -139,6 +143,8 @@ jobs:
     needs: [check-frontend-changes]
     if: needs.check-frontend-changes.outputs.frontend_changed == 'true'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
 
     env:
       FRONTEND_PATH: src/services/dashboard/frontend
@@ -170,6 +176,8 @@ jobs:
             
   check-backend-changes:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     outputs:
       backend_changed: ${{ steps.check.outputs.changed }}
       release_tag: ${{ steps.check.outputs.release_tag }}
@@ -235,6 +243,8 @@ jobs:
     needs: [check-backend-changes]
     if: needs.check-backend-changes.outputs.backend_changed == 'true'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
 
     env:
       BACKEND_PATH: src/services/dashboard/backend

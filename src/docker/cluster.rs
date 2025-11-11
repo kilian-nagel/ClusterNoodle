@@ -98,17 +98,17 @@ impl ClusterConfig {
             match command::run_with_timeout(cmd, Duration::from_secs(1000)) {
                 Ok(Some(output)) => {
                     if output.status.success() {
-                        println!("Docker installed on {}", target);
+                        println!("Docker installed on {}", node_config.ip);
                     } else {
                         println!(
                             "Install failed on {}: {}",
-                            target,
+                            node_config.ip,
                             String::from_utf8_lossy(&output.stderr)
                         );
                     }
                 }
-                Ok(None) => println!("Timeout for {}", target),
-                Err(e) => println!("Execution failed on {}: {}", target, e),
+                Ok(None) => println!("Timeout for {}", node_config.ip),
+                Err(e) => println!("Execution failed on {}: {}", node_config.ip, e),
             }
         }
     }
@@ -154,17 +154,17 @@ impl ClusterConfig {
                 Ok(Some(output)) => {
                     println!("{}", String::from_utf8_lossy(&output.stdout));
                     if output.status.success() {
-                        println!("{} joined the cluster", target);
+                        println!("{} joined the cluster", node_config.ip);
                     } else {
                         println!(
                             "{} failed to join the cluster : {}",
-                            target,
+                            node_config.ip,
                             String::from_utf8_lossy(&output.stderr)
                         );
                     }
                 }
-                Ok(None) => println!("Timeout for execution of {} on : {}", command, target),
-                Err(e) => println!("Execution of {} failed on {} : {}", command, target, e),
+                Ok(None) => println!("Timeout for execution of {} on : {}", command, node_config.ip),
+                Err(e) => println!("Execution of {} failed on {} : {}", command, node_config.ip, e),
             }
         }
     }
@@ -184,17 +184,17 @@ impl ClusterConfig {
                 Ok(Some(output)) => {
                     println!("{}", String::from_utf8_lossy(&output.stdout));
                     if output.status.success() {
-                        println!("{} left the cluster", target);
+                        println!("{} left the cluster", node_config.ip);
                     } else {
                         println!(
                             "{} failed to leave the cluster : {}",
-                            target,
+                            node_config.ip,
                             String::from_utf8_lossy(&output.stderr)
                         );
                     }
                 }
-                Ok(None) => println!("Timeout for execution of {} on : {}", command, target),
-                Err(e) => println!("Execution of {} failed on {} : {}", command, target, e),
+                Ok(None) => println!("Timeout for execution of {} on : {}", command, node_config.ip),
+                Err(e) => println!("Execution of {} failed on {} : {}", command, node_config.ip, e),
             }
         }
     }
