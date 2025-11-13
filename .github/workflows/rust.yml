@@ -289,10 +289,12 @@ jobs:
           node-version: 24.11.0
 
       - name: Lint backend
-        run: npx eslint src/services/dashboard/backend/src/
+        working-directory: src/services/dashboard/backend/src
+        run: npx eslint
 
       - name: Lint frontend
-        run: npx eslint src/services/dashboard/frontend/src/
+        working-directory: src/services/dashboard/frontend/src/
+        run: npx eslint 
 
   lint-and-scan-docker-images:
     runs-on: ubuntu-24.04
