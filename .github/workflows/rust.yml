@@ -13,7 +13,7 @@ env:
 
 jobs:
   build-cli:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     if: startsWith(github.ref, 'refs/tags/v') && !startsWith(github.ref, 'refs/tags/v-')
     permissions:
       contents: read
@@ -74,7 +74,7 @@ jobs:
           path: ClusterNoodle-linux.tar.gz
   
   check-frontend-changes:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     outputs:
       frontend_changed: ${{ steps.check.outputs.changed }}
       release_tag: ${{ steps.version.outputs.release_tag }}   
@@ -142,7 +142,7 @@ jobs:
   build-dashboard-frontend:
     needs: [check-frontend-changes]
     if: needs.check-frontend-changes.outputs.frontend_changed == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: read
 
@@ -175,7 +175,7 @@ jobs:
           cache-to: type=gha,mode=max
             
   check-backend-changes:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: read
     outputs:
@@ -242,7 +242,7 @@ jobs:
   build-dashboard-backend:
     needs: [check-backend-changes]
     if: needs.check-backend-changes.outputs.backend_changed == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: read
 
@@ -274,10 +274,85 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+  lint-dashboard:
+    runs-on: ubuntu-24.04
+
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Use Node.js 24.11.0
+        uses: actions/setup-node@v3
+        with:
+          node-version: 24.11.0
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint backend
+        run: npx eslint src/services/dashboard/backend/src/
+
+      - name: Lint frontend
+        run: npx eslint src/services/dashboard/frontend/src/
+
+  lint-and-scan-docker-images:
+    runs-on: ubuntu-24.04
+    env:
+      DOCKER_IMAGES: ${{ vars.DOCKER_IMAGES }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        
+      - name: Print Docker images
+        run: |
+          echo "Docker images defined in vars.DOCKER_IMAGES:"
+          echo "${DOCKER_IMAGES}"
+          
+      - name: Convert images to JSON array
+        id: convert
+        run: |
+          echo "Converting images to JSON..."
+          IMAGES_JSON=$(echo "${DOCKER_IMAGES}" | jq -R -s -c 'split("\n") | map(select(length>0))')
+          echo "IMAGES_JSON=$IMAGES_JSON" >> "$GITHUB_ENV"
+          echo "JSON result: $IMAGES_JSON"
+          
+      - name: Install Trivy
+        run: |
+          wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key | sudo apt-key add -
+          echo "deb https://aquasecurity.github.io/trivy-repo/deb $(lsb_release -sc) main" | sudo tee -a /etc/apt/sources.list.d/trivy.list
+          sudo apt-get update
+          sudo apt-get install trivy
+          
+      - name: Run all scans in parallel (same job)
+        run: |
+          echo "Running parallel Trivy scans..."
+          echo "$IMAGES_JSON" | jq -r '.[]' | while read IMAGE; do
+            [[ -z "$IMAGE" ]] && continue
+            echo "Starting scan for $IMAGE"
+            (
+              trivy image \
+                --ignore-unfixed \
+                --vuln-type os,library \
+                --format json \
+                "$IMAGE" > "scan_${IMAGE//[:\/]/_}.json" 2>&1
+            ) &
+          done
+          # Wait for all parallel scans to finish
+          wait
+          echo "All scans completed"
+          
+      - name: Upload scan artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: trivy-scan-results
+          path: scan_*.json
+
   release:
-    needs: build-cli
+    needs: [build-cli, lint-dashboard, lint-and-scan-docker-images]
     if: startsWith(github.ref, 'refs/tags/v')
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: write
     
