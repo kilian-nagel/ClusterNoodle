@@ -6,10 +6,31 @@ import cors from "cors";
 const app = express();
 app.use(cors());
 
-// Connect to Docker socket
 const docker = new Docker({ socketPath: "/var/run/docker.sock" });
 
-// Define types
+
+interface DockerNode {
+  ID: string;
+  Description?: {
+    Hostname?: string;
+  };
+  Status?: {
+    State?: string;
+  };
+}
+
+interface DockerService {
+  ID: string;
+  Spec?: {
+    Name?: string;
+    Mode?: {
+      Replicated?: {
+        Replicas?: number;
+      };
+    };
+  };
+}
+
 interface NodeInfo {
   id: string;
   hostname: string;
@@ -32,11 +53,12 @@ app.get("/api/docker/health", async (_req: Request, res: Response) => {
       swarmManagers: info.Swarm?.Managers || 0,
       swarmNodes: info.Swarm?.Nodes || 0
     });
-  } catch (error: any) {
+  }  catch (error: unknown) {
     console.error("Docker connection error:", error);
+    const errorMessage = error instanceof Error ? error.message : String(error);
     res.status(500).json({ 
       connected: false, 
-      error: error.message 
+      error: errorMessage
     });
   }
 });
@@ -46,7 +68,7 @@ app.get("/api/docker/nodes", async (_req: Request, res: Response) => {
   try {
     const nodes = await docker.listNodes();
 
-    const formatted: NodeInfo[] = nodes.map((n: any) => ({
+    const formatted: NodeInfo[] = nodes.map((n: DockerNode) => ({
       id: n.ID,
       hostname: n.Description?.Hostname || "unknown",
       status: n.Status?.State || "unknown",
@@ -64,7 +86,7 @@ app.get("/api/docker/services", async (_req: Request, res: Response) => {
   try {
     const services = await docker.listServices();
 
-    const formatted: ServiceInfo[] = services.map((s: any) => ({
+    const formatted: ServiceInfo[] = services.map((s: DockerService) => ({
       id: s.ID,
       name: s.Spec?.Name || "unknown",
       replicas:
