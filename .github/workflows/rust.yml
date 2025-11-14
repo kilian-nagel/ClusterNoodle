@@ -287,6 +287,9 @@ jobs:
         uses: actions/setup-node@v3
         with:
           node-version: 24.11.0
+      
+      - name: Install npm dependencies
+        run: npm install
 
       - name: Lint backend
         working-directory: src/services/dashboard/backend/src
@@ -335,19 +338,13 @@ jobs:
                 --ignore-unfixed \
                 --vuln-type os,library \
                 --format json \
-                "$IMAGE" > "scan_${IMAGE//[:\/]/_}.json" 2>&1
+                "$IMAGE"
             ) &
           done
           # Wait for all parallel scans to finish
           wait
           echo "All scans completed"
           
-      - name: Upload scan artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: trivy-scan-results
-          path: scan_*.json
-
   release:
     needs: [build-cli, lint-dashboard, lint-and-scan-docker-images]
     if: startsWith(github.ref, 'refs/tags/v')
