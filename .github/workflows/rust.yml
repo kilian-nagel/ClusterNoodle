@@ -288,7 +288,12 @@ jobs:
         with:
           node-version: 24.11.0
       
-      - name: Install npm dependencies
+      - name: Install npm dependencies for backend
+        working-directory: src/services/dashboard/backend/src
+        run: npm install
+
+      - name: Install npm dependencies for frontend
+        working-directory: src/services/dashboard/frontend/src
         run: npm install
 
       - name: Lint backend
@@ -344,7 +349,7 @@ jobs:
           # Wait for all parallel scans to finish
           wait
           echo "All scans completed"
-          
+
   release:
     needs: [build-cli, lint-dashboard, lint-and-scan-docker-images]
     if: startsWith(github.ref, 'refs/tags/v')
