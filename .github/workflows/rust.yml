@@ -301,7 +301,7 @@ jobs:
         run: npx eslint
 
       - name: Lint frontend
-        working-directory: src/services/dashboard/frontend/src/
+        working-directory: src/services/dashboard/frontend/src
         run: npx eslint 
 
   lint-and-scan-docker-images:
@@ -343,12 +343,25 @@ jobs:
                 --ignore-unfixed \
                 --vuln-type os,library \
                 --format json \
-                "$IMAGE"
+                "$IMAGE" > "$IMAGE.json"
             ) &
           done
           # Wait for all parallel scans to finish
           wait
           echo "All scans completed"
+
+      - name: Check if scan found a vulnerability
+        run: |
+          echo "$IMAGES_JSON" | jq -r '.[]' | while read IMAGE; do
+            echo "Checking vulnerabilities for $IMAGE"
+            if [ $(cat "$IMAGE.json" | jq '.Results[]' | jq '.Vulnerabilities' | jq '. | length' | xargs | cut -f 1 -d ' ') > 0 ]; then
+              exit 1
+            fi
+
+            if [ $(cat "$IMAGE.json" | jq '.Results[]' | jq '.Vulnerabilities' | jq '. | length' | xargs | cut -f 2 -d ' ') > 0 ]; then
+              exit 1
+            fi
+          done
 
   release:
     needs: [build-cli, lint-dashboard, lint-and-scan-docker-images]
