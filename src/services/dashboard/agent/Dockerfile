@@ -12,10 +12,10 @@ FROM node:${NODE_VERSION}-alpine
 
 # Use production node environment by default.
 ENV NODE_ENV production
-ENV DOCKER_SOCKET_AGENT_URL "http://localhost:8090"
-
 
 WORKDIR /usr/src/app
+
+
 
 # Download dependencies as a separate step to take advantage of Docker's caching.
 # Leverage a cache mount to /root/.npm to speed up subsequent builds.
@@ -26,8 +26,6 @@ RUN --mount=type=bind,source=package.json,target=package.json \
     --mount=type=cache,target=/root/.npm \
     npm ci --omit=dev
 
-ENV DOCKER_AGENT_URL='http://localhost:8090'
-
 # Run the application as a non-root user.
 USER node
 
@@ -35,7 +33,7 @@ USER node
 COPY . .
 
 # Expose the port that the application listens on.
-EXPOSE 3001
+EXPOSE 8090
 
 # Run the application.
 CMD node dist/index.js

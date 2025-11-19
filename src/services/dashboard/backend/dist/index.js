@@ -1,39 +1,47 @@
 import express from "express";
-import Docker from "dockerode";
 import cors from "cors";
 const app = express();
 app.use(cors());
-// Connect to Docker socket
-const docker = new Docker({ socketPath: "/var/run/docker.sock" });
 app.get("/api/docker/health", async (_req, res) => {
     try {
-        const info = await docker.info();
+        const url = process.env["DOCKER_SOCKET_AGENT_URL"] + "/api/docker/health";
+        console.log(url);
+        const health_data_raw = await fetch(url);
+        console.log("health_data_raw : ", health_data_raw);
+        const health_data = await health_data_raw.json();
+        console.log("health_data : ", health_data);
         res.json({
             connected: true,
-            swarmActive: info.Swarm?.LocalNodeState === 'active',
-            swarmNodeId: info.Swarm?.NodeID || null,
-            swarmManagers: info.Swarm?.Managers || 0,
-            swarmNodes: info.Swarm?.Nodes || 0
+            swarmActive: health_data.Swarm?.LocalNodeState === 'active',
+            swarmNodeId: health_data.Swarm?.NodeID || null,
+            swarmManagers: health_data.Swarm?.Managers || 0,
+            swarmNodes: health_data.Swarm?.Nodes || 0
         });
+        res.status(200).json(health_data);
     }
     catch (error) {
         console.error("Docker connection error:", error);
+        const errorMessage = error instanceof Error ? error.message : String(error);
         res.status(500).json({
             connected: false,
-            error: error.message
+            error: errorMessage
         });
     }
 });
 // Fetch all nodes
 app.get("/api/docker/nodes", async (_req, res) => {
     try {
-        const nodes = await docker.listNodes();
-        const formatted = nodes.map((n) => ({
+        const nodes_data_raw = await fetch(process.env["DOCKER_SOCKET_AGENT_URL"] + "/api/docker/nodes");
+        console.log("nodes_data_raw : ", nodes_data_raw);
+        const nodes_data = await nodes_data_raw.json();
+        console.log("nodes_data", nodes_data);
+        const nodes_formatted = nodes_data.map((n) => ({
             id: n.ID,
             hostname: n.Description?.Hostname || "unknown",
             status: n.Status?.State || "unknown",
         }));
-        res.json(formatted);
+        console.log("nodes_data_formatted : ", nodes_formatted);
+        res.status(200).json(nodes_formatted);
     }
     catch (error) {
         console.error("Error fetching nodes:", error);
@@ -43,14 +51,18 @@ app.get("/api/docker/nodes", async (_req, res) => {
 // Fetch all services
 app.get("/api/docker/services", async (_req, res) => {
     try {
-        const services = await docker.listServices();
-        const formatted = services.map((s) => ({
+        const services_data_raw = await fetch(process.env["DOCKER_SOCKET_AGENT_URL"] + "/api/docker/services");
+        console.log("services_data_raw : ", services_data_raw);
+        const services = await services_data_raw.json();
+        console.log("services : ", services);
+        const formatted_services = services.map((s) => ({
             id: s.ID,
             name: s.Spec?.Name || "unknown",
             replicas: s.Spec?.Mode?.Replicated?.Replicas?.toString() ??
                 "Global / Unknown",
         }));
-        res.json(formatted);
+        console.log("formatted_services : ", formatted_services);
+        res.json(formatted_services);
     }
     catch (error) {
         console.error("Error fetching services:", error);
