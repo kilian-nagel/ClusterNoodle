@@ -3,7 +3,7 @@ import express from "express"
 import { Request, Response } from 'express';
 import cors from "cors";
 
-declare var process : {
+declare const process : {
   env: {
     DOCKER_SOCKET_AGENT_URL: string
     DOCKER_FRONTEND_URL: string
