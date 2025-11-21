@@ -8,41 +8,6 @@ app.use(cors());
 
 const docker = new Docker({ socketPath: "/var/run/docker.sock" });
 
-
-interface DockerNode {
-  ID: string;
-  Description?: {
-    Hostname?: string;
-  };
-  Status?: {
-    State?: string;
-  };
-}
-
-interface DockerService {
-  ID: string;
-  Spec?: {
-    Name?: string;
-    Mode?: {
-      Replicated?: {
-        Replicas?: number;
-      };
-    };
-  };
-}
-
-interface NodeInfo {
-  id: string;
-  hostname: string;
-  status: string;
-}
-
-interface ServiceInfo {
-  id: string;
-  name: string;
-  replicas: string;
-}
-
 app.get("/api/docker/health", async (_req: Request, res: Response) => {
   try {
     const info = await docker.info();

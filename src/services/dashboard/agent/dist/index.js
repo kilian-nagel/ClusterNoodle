@@ -3,9 +3,7 @@ import Docker from "dockerode";
 import cors from "cors";
 const app = express();
 app.use(cors());
-
 const docker = new Docker({ socketPath: "/var/run/docker.sock" });
- 
 app.get("/api/docker/health", async (_req, res) => {
     try {
         const info = await docker.info();
@@ -20,7 +18,6 @@ app.get("/api/docker/health", async (_req, res) => {
         });
     }
 });
-
 // Fetch all nodes
 app.get("/api/docker/nodes", async (_req, res) => {
     try {

@@ -1,8 +1,15 @@
 import express from "express"
 
 import { Request, Response } from 'express';
-import Docker from "dockerode";
 import cors from "cors";
+
+declare var process : {
+  env: {
+    DOCKER_SOCKET_AGENT_URL: string
+    DOCKER_FRONTEND_URL: string
+    PORT: number
+  }
+}
 
 const app = express();
 app.use(cors());
@@ -42,16 +49,10 @@ interface ServiceInfo {
   replicas: string;
 }
 
-declare var process : {
-  env: {
-    DOCKER_SOCKET_AGENT_URL: string
-    PORT: number
-  }
-}
 
 app.get("/api/docker/health", async (_req: Request, res: Response) => {
   try {
-    const url = process.env["DOCKER_SOCKET_AGENT_URL"] + "/api/docker/health";
+    const url = process.env.DOCKER_SOCKET_AGENT_URL + "/api/docker/health";
     console.log(url);
     const health_data_raw = await fetch(url);
     console.log("health_data_raw : ", health_data_raw); 

@@ -91,6 +91,9 @@ struct Services {
 
     #[arg(long)]
     traefik: bool,
+
+    #[arg(long)]
+    dashboard: bool,
 }
 
 fn main() {
@@ -155,6 +158,7 @@ fn main() {
                     server: services.server.clone(),
                     database: services.database.clone(),
                     traefik: services.traefik.clone(),
+                    dashboard: services.dashboard.clone()
                 },
                 ip_adress: ip_adress.clone(),
                 project_folder_path: project_folder_path.clone(),
@@ -213,6 +217,7 @@ fn main() {
                     database: None,
                     server: None,
                     traefik: false,
+                    dashboard: false
                 },
                 project_folder_path: Some(String::from("")),
                 project_entry_file_path: Some(String::from("")),

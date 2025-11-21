@@ -16,6 +16,7 @@ pub enum Service {
     Server,
     Database,
     Traefik,
+    Dashboard
 }
 
 #[derive(Clone, Debug, ValueEnum)]
@@ -39,6 +40,7 @@ pub struct Services {
     pub server: Option<ServerType>,
     pub database: Option<DatabaseType>,
     pub traefik: bool,
+    pub dashboard: bool,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -81,6 +83,10 @@ impl<'a> DockerComposeBuilder<'a> {
         self.add_server_service();
         self.add_database_service();
 
+        if self.cluster_config.services.dashboard {
+            self.add_dashboard_service();
+        }
+
         // Convertir le tout en yaml
         let yaml = serde_yaml::to_string(&self.compose)?;
         Ok(yaml)
@@ -111,6 +117,60 @@ impl<'a> DockerComposeBuilder<'a> {
         self.compose
             .services
             .insert("traefik".to_string(), traefik_service);
+    }
+
+    fn add_dashboard_service(&mut self) {
+        let mut backend_env_variables = HashMap::new();
+        backend_env_variables.insert(String::from("DOCKER_SOCKET_AGENT_URL"), String::from("http://agent:8090"));
+        backend_env_variables.insert(String::from("DOCKER_FRONTEND_URL"), String::from("http://frontend"));
+
+        let backend_service = DockerComposeService {
+            image: "nagelkilian/clusternoodle-dashboard-backend".to_string(),
+            command: None,
+            ports: Some(vec!["3001:3001".to_string()]),
+            volumes: None,
+            labels: None,
+            environment: Some(backend_env_variables),
+            depends_on: None,
+        };
+
+        let frontend_service = DockerComposeService {
+            image: "nagelkilian/clusternoodle-dashboard-frontend".to_string(),
+            command: None,
+            ports: Some(vec!["8080:8080".to_string()]),
+            volumes: None,
+            labels: None,
+            environment: None,
+            depends_on: None,
+        };
+
+        let mut agent_env_variables = HashMap::new();
+        agent_env_variables.insert(String::from("DOCKER_BACKEND_BACKEND_URL"), String::from("http://backend:3001"));
+
+        let agent_service = DockerComposeService {
+            image: "nagelkilian/clusternoodle-dashboard-agent".to_string(),
+            command: None,
+            ports: Some(vec!["8090:8090".to_string()]),
+            volumes: Some(vec![
+                "/var/run/docker.sock:/var/run/docker.sock".to_string(),
+            ]),
+            labels: None,
+            environment: Some(agent_env_variables),
+            depends_on: None,
+        };
+
+        self.compose
+            .services
+            .insert("agent".to_string(), agent_service);
+
+        self.compose
+            .services
+            .insert("frontend".to_string(), frontend_service);
+
+        self.compose
+            .services
+            .insert("backend".to_string(), backend_service);
+
     }
 
     fn add_server_service(&mut self) {

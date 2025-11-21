@@ -13,7 +13,7 @@ FROM node:${NODE_VERSION}-alpine
 # Use production node environment by default.
 ENV NODE_ENV production
 ENV DOCKER_SOCKET_AGENT_URL "http://localhost:8090"
-
+ENV DOCKER_FRONTEND_URL "http://frontend"
 
 WORKDIR /usr/src/app
 
@@ -25,8 +25,6 @@ RUN --mount=type=bind,source=package.json,target=package.json \
     --mount=type=bind,source=package-lock.json,target=package-lock.json \
     --mount=type=cache,target=/root/.npm \
     npm ci --omit=dev
-
-ENV DOCKER_AGENT_URL='http://localhost:8090'
 
 # Run the application as a non-root user.
 USER node

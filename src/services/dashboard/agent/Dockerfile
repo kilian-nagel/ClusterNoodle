@@ -12,6 +12,7 @@ FROM node:${NODE_VERSION}-alpine
 
 # Use production node environment by default.
 ENV NODE_ENV production
+ENV DOCKER_BACKEND_BACKEND_URL "http://backend"
 
 WORKDIR /usr/src/app
 

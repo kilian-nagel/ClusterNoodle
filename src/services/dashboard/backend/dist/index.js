@@ -1,10 +1,11 @@
 import express from "express";
 import cors from "cors";
+console.log(process.env.DOCKER_FRONTEND_URL);
 const app = express();
 app.use(cors());
 app.get("/api/docker/health", async (_req, res) => {
     try {
-        const url = process.env["DOCKER_SOCKET_AGENT_URL"] + "/api/docker/health";
+        const url = process.env.DOCKER_SOCKET_AGENT_URL + "/api/docker/health";
         console.log(url);
         const health_data_raw = await fetch(url);
         console.log("health_data_raw : ", health_data_raw);

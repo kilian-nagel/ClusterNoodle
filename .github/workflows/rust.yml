@@ -274,6 +274,108 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+  check-agent-changes:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    outputs:
+      backend_changed: ${{ steps.check.outputs.changed }}
+      release_tag: ${{ steps.check.outputs.release_tag }}
+    env:
+      DOCKER_IMAGE: ${{ vars.DOCKER_DASHBOARD_AGENT_IMAGE_NAME }}
+      TAG_NAME: "v-dashboard-agent-"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # full history for git diff
+
+      - name: Check if version tag already exists in docker repo
+        id: version
+        run: |
+          VERSION_TAGS="$(curl 'https://hub.docker.com/v2/repositories/nagelkilian/${{ env.DOCKER_IMAGE }}/tags?page=1&page_size=1000' -H 'Content-Type: application/json' | jq '.results' | jq '.[]' | jq '.name')"
+          VERSION="${{ github.ref }}"
+          VERSION="${VERSION##*\/$v-dashboard-agent-}"
+          echo "release_tag=$VERSION" >> "$GITHUB_OUTPUT"
+
+          if ! echo "${{ github.ref }}" | grep -q '${{ env.TAG_NAME }}'; then
+            echo "Le tag de l'agent du dashboard est incorrect : ${{ github.ref }}. Il devrait commencer par : '${{ env.TAG_NAME }}' Exemple : ${{ env.TAG_NAME }}1.0.1"
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if [ -z "${VERSION}" ]; then
+            echo "Aucun numéro de version trouvé dans le tag : ${{ github.ref }}. (Il devrait contenir : 1.0.2 par exemple)"
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          
+          # Vérifie si le tag de version que l'on veut release existe déjà parmi les tags du repo docker
+          if echo "$VERSION_TAGS" | grep -q "\"$VERSION\""; then
+              echo "ERROR: v${VERSION} version already exists in your docker repo for ${{ env.DOCKER_IMAGE }}"
+              echo "changed=false" >> "$GITHUB_OUTPUT"
+              exit 1
+          fi 
+
+          echo "changed=true" >> "$GITHUB_OUTPUT"
+
+      - id: check
+        name: Detect frontend changes
+        if: ${{ steps.version.outputs.changed == 'true' }}
+        run: |
+          # Compare current HEAD with previous commit or base branch
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            git fetch origin ${{ github.base_ref }} --depth=1
+            if git diff --quiet origin/${{ github.base_ref }}...HEAD -- src/services/dashboard/agent/; then
+              echo "changed=false" >> "$GITHUB_OUTPUT"
+            else
+              echo "changed=true" >> "$GITHUB_OUTPUT"
+            fi
+          else
+            if git diff --quiet HEAD^ HEAD -- src/services/dashboard/agent/; then
+              echo "changed=false" >> "$GITHUB_OUTPUT"
+            else
+              echo "changed=true" >> "$GITHUB_OUTPUT"
+            fi
+          fi
+          echo "release_tag=${{ steps.version.outputs.release_tag }}" >> "$GITHUB_OUTPUT"
+
+  build-dashboard-agent:
+    needs: [check-agent-changes]
+    if: needs.check-agent-changes.outputs.backend_changed == 'true'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+
+    env:
+      AGENT_PATH: src/services/dashboard/agent
+      DOCKER_IMAGE: ${{ vars.DOCKER_DASHBOARD_AGENT_IMAGE_NAME }}
+      DOCKER_USER: nagelkilian
+      DOCKER_TOKEN: ${{ secrets.DOCKER_TOKEN }}
+      TAG: ${{ needs.check-agent-changes.outputs.release_tag }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ env.DOCKER_USER }}
+          password: ${{ env.DOCKER_TOKEN }}        
+
+      - name: Build & push Docker image (cached)
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ env.AGENT_PATH }}
+          push: true
+          tags: "${{ env.DOCKER_IMAGE }}:v${{ env.TAG }}"
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+
   lint-dashboard:
     runs-on: ubuntu-24.04
 
