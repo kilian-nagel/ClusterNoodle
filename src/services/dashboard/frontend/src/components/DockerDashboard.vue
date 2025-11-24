@@ -2,6 +2,7 @@
 import { ref, onMounted, computed } from 'vue'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import Clipboard from './Clipboard.vue';
 
 interface NodeInfo {
   id: string
@@ -25,7 +26,7 @@ const lastUpdate = ref<Date | null>(null)
 
 enum ClusterState {
   Unreachable = 'Unreachable',
-  Unknown = 'Unkown',
+  Unknown = 'Unknown',
   Healthy = 'Healthy',
   Degraded = 'Degraded',
 }
@@ -52,7 +53,6 @@ async function fetchSwarmData() {
     lastUpdate.value = new Date()
 
     if(nodesRes?.status === 500){
-      console.log("erreur");
       nodes.value = [];
       services.value = [];
       isClusterUp.value = false;
@@ -63,19 +63,7 @@ async function fetchSwarmData() {
     services.value = await servicesRes.json()
   } catch (err) {
     console.error('Error fetching swarm data:', err)
-    // Mock data for demo purposes
-    // nodes.value = [
-    //   { id: '1', hostname: 'manager-01', status: 'ready', role: 'manager' },
-    //   { id: '2', hostname: 'worker-01', status: 'ready', role: 'worker' },
-    //   { id: '3', hostname: 'worker-02', status: 'down', role: 'worker' },
-    //   { id: '4', hostname: 'worker-03', status: 'ready', role: 'worker' },
-    // ]
-    // services.value = [
-    //   { id: '1', name: 'web-frontend', replicas: '3/3', status: 'running' },
-    //   { id: '2', name: 'api-backend', replicas: '5/5', status: 'running' },
-    //   { id: '3', name: 'database', replicas: '1/1', status: 'running' },
-    //   { id: '4', name: 'cache', replicas: '2/3', status: 'degraded' },
-    // ]
+
     nodes.value = [];
     services.value = [];
     isClusterUp.value = false;
@@ -127,9 +115,12 @@ onMounted(() => {
             </div>
             <div>
               <h3 class="text-lg font-semibold text-red-200 mb-1">Cluster Unreachable</h3>
-              <p class="text-sm text-red-300">Unable to connect to Docker cluster. Please start your cluster to view dashboard information.</p>
+              <p class="text-sm text-red-300 max-w-[920px]">Unable to connect to Docker cluster. Please make sure you started your cluster and that your user can access the docker socket. Before executing the following command make sure you undestand the security implications.
+              </p>
             </div>
           </div>
+      <Clipboard class="mt-4" text="sudo chown $USER:$USER /var/run/docker.sock"/>
+
         </CardContent>
       </Card>
     </div>

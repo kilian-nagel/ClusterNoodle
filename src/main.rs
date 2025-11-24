@@ -202,7 +202,7 @@ fn main() {
 
             // Déploiement des services docker
             println!("Deploying services to the cluster...");
-            cluster::deploy_services(docker_compose_file.as_deref());
+            cluster::deploy_services();
         }
         Some(Commands::Stop {}) => {
             let env = EnvVariables {};

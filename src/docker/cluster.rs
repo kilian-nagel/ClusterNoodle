@@ -1,7 +1,6 @@
-use crate::{ClusterConfig, docker};
+use crate::ClusterConfig;
 use crate::utils::command;
 use crate::utils::envVariables::EnvVariables;
-use std::path;
 use std::process::Command;
 use std::time::Duration;
 
@@ -215,10 +214,10 @@ pub fn destroy_cluster() -> () {
     }
 }
 
-pub fn deploy_services(docker_file_path_param: Option<&str>) {
+pub fn deploy_services() {
     // Si un chemin a été renseigné on l'utilise sinon utilise celui par défaut.
     let env = EnvVariables {};
-    let mut docker_file_path = String::from(env.get_docker_file_path());
+    let docker_file_path = String::from(env.get_docker_file_path());
 
     let mut cmd = Command::new("docker");
     cmd.arg("stack")
