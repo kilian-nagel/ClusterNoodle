@@ -82,7 +82,6 @@ impl<'a> DockerComposeBuilder<'a> {
 
         self.add_server_service();
         self.add_database_service();
-
         if self.cluster_config.services.dashboard {
             self.add_dashboard_service();
         }
@@ -118,61 +117,7 @@ impl<'a> DockerComposeBuilder<'a> {
             .services
             .insert("traefik".to_string(), traefik_service);
     }
-
-    fn add_dashboard_service(&mut self) {
-        let mut backend_env_variables = HashMap::new();
-        backend_env_variables.insert(String::from("DOCKER_SOCKET_AGENT_URL"), String::from("http://agent:8090"));
-        backend_env_variables.insert(String::from("DOCKER_FRONTEND_URL"), String::from("http://frontend"));
-
-        let backend_service = DockerComposeService {
-            image: "nagelkilian/clusternoodle-dashboard-backend".to_string(),
-            command: None,
-            ports: Some(vec!["3001:3001".to_string()]),
-            volumes: None,
-            labels: None,
-            environment: Some(backend_env_variables),
-            depends_on: None,
-        };
-
-        let frontend_service = DockerComposeService {
-            image: "nagelkilian/clusternoodle-dashboard-frontend".to_string(),
-            command: None,
-            ports: Some(vec!["8080:8080".to_string()]),
-            volumes: None,
-            labels: None,
-            environment: None,
-            depends_on: None,
-        };
-
-        let mut agent_env_variables = HashMap::new();
-        agent_env_variables.insert(String::from("DOCKER_BACKEND_BACKEND_URL"), String::from("http://backend:3001"));
-
-        let agent_service = DockerComposeService {
-            image: "nagelkilian/clusternoodle-dashboard-agent".to_string(),
-            command: None,
-            ports: Some(vec!["8090:8090".to_string()]),
-            volumes: Some(vec![
-                "/var/run/docker.sock:/var/run/docker.sock".to_string(),
-            ]),
-            labels: None,
-            environment: Some(agent_env_variables),
-            depends_on: None,
-        };
-
-        self.compose
-            .services
-            .insert("agent".to_string(), agent_service);
-
-        self.compose
-            .services
-            .insert("frontend".to_string(), frontend_service);
-
-        self.compose
-            .services
-            .insert("backend".to_string(), backend_service);
-
-    }
-
+    
     fn add_server_service(&mut self) {
         let server_type = self.cluster_config.services.server.clone();
         match server_type {
@@ -182,10 +127,10 @@ impl<'a> DockerComposeBuilder<'a> {
                     "{}:/etc/nginx/conf.d/server.conf:ro",
                     NginxConfig::get_config_path()
                 );
-                
+
                 let mut nginx_service = DockerComposeService {
                     image: "trafex/php-nginx:3.9.0".to_string(),
-                    labels: None,   
+                    labels: None,
                     command: None,
                     ports: Some(vec![format!("80:8080")]),
                     volumes: Some(vec![conf_volume]),
@@ -193,16 +138,24 @@ impl<'a> DockerComposeBuilder<'a> {
                     depends_on: None,
                 };
 
-                self.cluster_config.docker_images.push(String::from("trafex/php-nginx:3.9.0"));
+                self.cluster_config
+                    .docker_images
+                    .push(String::from("trafex/php-nginx:3.9.0"));
 
-                if let Some(ref mut volumes) = nginx_service.volumes && self.cluster_config.project_folder_path.is_some() {
-                    let absolute_path = fs::canonicalize(self.cluster_config.project_folder_path.clone().unwrap()).unwrap();
+                if let Some(ref mut volumes) = nginx_service.volumes
+                    && self.cluster_config.project_folder_path.is_some()
+                {
+                    let absolute_path =
+                        fs::canonicalize(self.cluster_config.project_folder_path.clone().unwrap())
+                            .unwrap();
                     let usable_path = absolute_path.to_str().unwrap();
                     // Volume qui concerne le code à exécuter dans le serveur Nginx.
-                    volumes.push(format!("{}:/var/www/html",usable_path));
+                    volumes.push(format!("{}:/var/www/html", usable_path));
                 };
 
-                if let Some(crt_path) = &self.cluster_config.ssl_certificate_path_crt  && let Some(key_path) = &self.cluster_config.ssl_certificate_path_key{
+                if let Some(crt_path) = &self.cluster_config.ssl_certificate_path_crt
+                    && let Some(key_path) = &self.cluster_config.ssl_certificate_path_key
+                {
                     let crt_absolute_path = fs::canonicalize(crt_path).unwrap();
                     let key_absolute_path = fs::canonicalize(key_path).unwrap();
 
@@ -217,10 +170,18 @@ impl<'a> DockerComposeBuilder<'a> {
                     if let Some(ref mut ports) = nginx_service.ports {
                         ports.push(format!("443:443"));
                     }
-                } else if self.cluster_config.ssl_certificate_path_crt.is_some() && self.cluster_config.ssl_certificate_path_key.is_none() {
-                    println!("Seul le certificat TLS a été renseigné il manque la clé (--ssl_certificate_path_key) !");
-                } else if self.cluster_config.ssl_certificate_path_key.is_some() && self.cluster_config.ssl_certificate_path_crt.is_none() {
-                    println!("Seul la clé TLS a été renseignée il manque le certificat (--ssl_certificate_path_crt)!");
+                } else if self.cluster_config.ssl_certificate_path_crt.is_some()
+                    && self.cluster_config.ssl_certificate_path_key.is_none()
+                {
+                    println!(
+                        "Seul le certificat TLS a été renseigné il manque la clé (--ssl_certificate_path_key) !"
+                    );
+                } else if self.cluster_config.ssl_certificate_path_key.is_some()
+                    && self.cluster_config.ssl_certificate_path_crt.is_none()
+                {
+                    println!(
+                        "Seul la clé TLS a été renseignée il manque le certificat (--ssl_certificate_path_crt)!"
+                    );
                 }
 
                 if self.cluster_config.services.traefik {
@@ -250,18 +211,26 @@ impl<'a> DockerComposeBuilder<'a> {
                     volumes: Some(vec![vhost_path_volume]),
                     environment: None,
                     depends_on: None,
-                };  
+                };
 
-                self.cluster_config.docker_images.push(String::from("webdevops/php-apache:8.4"));
+                self.cluster_config
+                    .docker_images
+                    .push(String::from("webdevops/php-apache:8.4"));
 
-                if let Some(ref mut volumes) = apache_service.volumes && self.cluster_config.project_folder_path.is_some() {
+                if let Some(ref mut volumes) = apache_service.volumes
+                    && self.cluster_config.project_folder_path.is_some()
+                {
                     // Volume qui concerne le code à exécuter dans le serveur Apache.
-                    let app_path = fs::canonicalize(self.cluster_config.project_folder_path.clone().unwrap()).unwrap();
+                    let app_path =
+                        fs::canonicalize(self.cluster_config.project_folder_path.clone().unwrap())
+                            .unwrap();
                     let app_path_usable = app_path.to_str().unwrap();
                     volumes.push(format!("{}:/app", app_path_usable));
                 };
 
-                if let Some(crt_path) = &self.cluster_config.ssl_certificate_path_crt  && let Some(key_path) = &self.cluster_config.ssl_certificate_path_key{
+                if let Some(crt_path) = &self.cluster_config.ssl_certificate_path_crt
+                    && let Some(key_path) = &self.cluster_config.ssl_certificate_path_key
+                {
                     let crt_absolute_path = fs::canonicalize(crt_path).unwrap();
                     let key_absolute_path = fs::canonicalize(key_path).unwrap();
 
@@ -269,17 +238,31 @@ impl<'a> DockerComposeBuilder<'a> {
                     let key_path_usable = key_absolute_path.to_str().unwrap();
 
                     if let Some(ref mut vols) = apache_service.volumes {
-                        vols.push(format!("{}:/opt/docker/etc/httpd/ssl/server.crt:ro", crt_path_usable));
-                        vols.push(format!("{}:/opt/docker/etc/httpd/ssl/server.key:ro",  key_path_usable));
+                        vols.push(format!(
+                            "{}:/opt/docker/etc/httpd/ssl/server.crt:ro",
+                            crt_path_usable
+                        ));
+                        vols.push(format!(
+                            "{}:/opt/docker/etc/httpd/ssl/server.key:ro",
+                            key_path_usable
+                        ));
                     }
 
                     if let Some(ref mut ports) = apache_service.ports {
                         ports.push(format!("443:443"));
-                    }   
-                }  else if self.cluster_config.ssl_certificate_path_crt.is_some() && self.cluster_config.ssl_certificate_path_key.is_none() {
-                    println!("Seul le certificat TLS a été renseigné il manque la clé (--ssl_certificate_path_key) !");
-                } else if self.cluster_config.ssl_certificate_path_key.is_some() && self.cluster_config.ssl_certificate_path_crt.is_none() {
-                    println!("Seul la clé TLS a été renseignée il manque le certificat (--ssl_certificate_path_crt)!");
+                    }
+                } else if self.cluster_config.ssl_certificate_path_crt.is_some()
+                    && self.cluster_config.ssl_certificate_path_key.is_none()
+                {
+                    println!(
+                        "Seul le certificat TLS a été renseigné il manque la clé (--ssl_certificate_path_key) !"
+                    );
+                } else if self.cluster_config.ssl_certificate_path_key.is_some()
+                    && self.cluster_config.ssl_certificate_path_crt.is_none()
+                {
+                    println!(
+                        "Seul la clé TLS a été renseignée il manque le certificat (--ssl_certificate_path_crt)!"
+                    );
                 }
 
                 if self.cluster_config.services.traefik {
@@ -306,7 +289,9 @@ impl<'a> DockerComposeBuilder<'a> {
                     depends_on: None,
                 };
 
-                self.cluster_config.docker_images.push(String::from("node:22"));
+                self.cluster_config
+                    .docker_images
+                    .push(String::from("node:22"));
 
                 if self.cluster_config.services.traefik {
                     node_service.labels = Some(vec![
@@ -357,7 +342,9 @@ impl<'a> DockerComposeBuilder<'a> {
                     depends_on: None,
                 };
 
-                self.cluster_config.docker_images.push(String::from("mysql:8.4"));
+                self.cluster_config
+                    .docker_images
+                    .push(String::from("mysql:8.4"));
 
                 self.compose
                     .services
@@ -380,7 +367,9 @@ impl<'a> DockerComposeBuilder<'a> {
                     volumes: None,
                 };
 
-                self.cluster_config.docker_images.push(String::from("prom/mysqld-exporter:latest"));
+                self.cluster_config
+                    .docker_images
+                    .push(String::from("prom/mysqld-exporter:latest"));
 
                 if self.cluster_config.services.traefik {
                     mysqld_exporter.labels = Some(vec![
@@ -421,7 +410,9 @@ impl<'a> DockerComposeBuilder<'a> {
                     depends_on: None,
                 };
 
-                self.cluster_config.docker_images.push("postgres:15".to_owned());
+                self.cluster_config
+                    .docker_images
+                    .push("postgres:15".to_owned());
 
                 self.compose
                     .services
@@ -468,6 +459,129 @@ impl<'a> DockerComposeBuilder<'a> {
             }
         }
     }
+
+    fn add_dashboard_service(&mut self) {
+        let env = EnvVariables {};
+        // On récupère les tag docker de nos images qui sont dans le fichier Cargo.toml
+        let docker_dashboard_frontend_image_tag = match env.get_docker_dashboard_frontend_image_tag() {
+            Ok(tag) => tag,
+            Err(e) => {
+                println!(
+                    "Docker dashboard frontend image tag not found in {}: {}. Defaulting to 'latest'.",
+                    env.get_env_file_path(),
+                    e
+                );
+                "latest".to_string()
+            }
+        };
+
+        let docker_dashboard_backend_image_tag = match env.get_docker_dashboard_backend_image_tag() {
+            Ok(tag) => tag,
+            Err(e) => {
+                println!(
+                    "Docker dashboard backend image tag not found in {}: {}. Defaulting to 'latest'.",
+                    env.get_env_file_path(),
+                    e
+                );
+                "latest".to_string()
+            }
+        };
+
+        let docker_dashboard_agent_image_tag = match env.get_docker_dashboard_agent_image_tag() {
+            Ok(tag) => tag,
+            Err(e) => {
+                println!(
+                    "Docker dashboard agent image tag not found in {}: {}. Defaulting to 'latest'.",
+                    env.get_env_file_path(),
+                    e
+                );
+                "latest".to_string()
+            }
+        };
+
+        let docker_frontend_image_name = format!(
+            "nagelkilian/clusternoodle-dashboard-frontend:{}",
+            docker_dashboard_frontend_image_tag
+        );
+        let docker_backend_image_name = format!(
+            "nagelkilian/clusternoodle-dashboard-backend:{}",
+            docker_dashboard_backend_image_tag
+        );
+        let docker_agent_image_name = format!(
+            "nagelkilian/clusternoodle-dashboard-agent:{}",
+            docker_dashboard_agent_image_tag
+        );
+
+        let dashboard_frontend_service_name = "dashboard-frontend";
+        let dashboard_backend_service_name = "dashboard-backend";
+        let dashboard_agent_service_name = "dashboard-agent";
+        let dashboard_frontend_service_port = 8080;
+        let dashboard_backend_service_port = 3001;
+        let dashboard_agent_service_port = 8090;
+
+        let mut dashboard_frontend_env = HashMap::new();
+        dashboard_frontend_env.insert(
+            "BACKEND_URL".to_string(),
+            format!(
+                "http://{}:{}",
+                dashboard_backend_service_name, dashboard_backend_service_port
+            ),
+        );
+
+        let mut dashboard_backend_env = HashMap::new();
+        dashboard_backend_env.insert(
+            "FRONTEND_URL".to_string(),
+            format!("http://{}:{}", dashboard_frontend_service_name, dashboard_frontend_service_port),
+        );
+        dashboard_backend_env.insert(
+            "AGENT_URL".to_string(),
+            format!("http://{}:{}", dashboard_agent_service_name, dashboard_agent_service_port),
+        );
+
+        // On ajoute les services et images docker.
+        self.cluster_config.docker_images.push(docker_frontend_image_name.clone());
+        let dashboard_frontend_service = DockerComposeService {
+            image: docker_frontend_image_name.to_string(),
+            ports: Some(vec![format!(
+                "{}:{}",
+                dashboard_frontend_service_port, dashboard_frontend_service_port
+            )]),
+            depends_on: Some(vec!["dashboard-backend".to_string()]),
+            command: None,
+            volumes: None,
+            environment: Some(dashboard_frontend_env),
+            labels: None,
+        };
+
+        self.cluster_config.docker_images.push(docker_backend_image_name.clone());
+        let dashboard_backend_service = DockerComposeService {
+            image: docker_backend_image_name.to_string(),
+            ports: Some(vec![format!(
+                "{}:{}",
+                dashboard_backend_service_port, dashboard_backend_service_port
+            )]),
+            depends_on: Some(vec!["dashboard-agent".to_string()]),
+            command: None,
+            volumes: None,
+            environment: Some(dashboard_backend_env),
+            labels: None,
+        };
+
+        self.cluster_config.docker_images.push(docker_agent_image_name.clone());
+        let dashboard_agent_service = DockerComposeService {
+            image: docker_agent_image_name.to_string(),
+            ports: Some(vec![format!("{}:{}", dashboard_agent_service_port, dashboard_agent_service_port)]),
+            depends_on: None,
+            command: None,
+            volumes: None,
+            environment: None,
+            labels: None,
+        };
+
+        self.compose.services.insert(dashboard_frontend_service_name.to_string(), dashboard_frontend_service);
+        self.compose.services.insert(dashboard_backend_service_name.to_string(),dashboard_backend_service);
+        self.compose.services.insert(dashboard_agent_service_name.to_string(), dashboard_agent_service);
+    }
 }
 
 pub fn generate_docker_file(config: &mut ClusterConfig) -> io::Result<()> {
@@ -503,7 +617,7 @@ pub fn create_docker_file(dockerfile_content: &str) -> io::Result<()> {
         Err(err) => {
             println!("Error while creating : docker-compose.file : {}", err);
             return Err(err.into());
-        },
+        }
     }
     Ok(())
 }

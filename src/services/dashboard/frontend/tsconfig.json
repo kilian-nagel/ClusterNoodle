@@ -14,9 +14,13 @@
   "compilerOptions": {
     "module": "NodeNext",
     "baseUrl": "./src",
+    "types": [
+      "node"
+    ],
     "paths": {
       "@components": ["components/*"],
       "@utils": ["lib/utils/*"]
     }
   }
+  
 }

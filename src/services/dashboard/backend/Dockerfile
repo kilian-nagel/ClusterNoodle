@@ -11,9 +11,14 @@ ARG NODE_VERSION=24.10.0
 FROM node:${NODE_VERSION}-alpine
 
 # Use production node environment by default.
-ENV NODE_ENV production
-ENV DOCKER_SOCKET_AGENT_URL "http://localhost:8090"
-ENV DOCKER_FRONTEND_URL "http://frontend"
+ENV NODE_ENV=production
+
+# Accept build-time arguments for URLs and expose them as runtime envs.
+ARG AGENT_URL
+ARG FRONTEND_URL=http://localhost:3000
+ENV AGENT_URL=${AGENT_URL}
+ENV FRONTEND_URL=${FRONTEND_URL}
+
 
 WORKDIR /usr/src/app
 
@@ -32,8 +37,12 @@ USER node
 # Copy the rest of the source files into the image.
 COPY . .
 
+# Align port variable name with server expectation
+ENV PORT=3001
+
 # Expose the port that the application listens on.
 EXPOSE 3001
 
+
 # Run the application.
-CMD node dist/index.js
+CMD ["node","dist/index.js"]

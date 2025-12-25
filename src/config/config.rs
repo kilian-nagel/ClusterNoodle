@@ -25,7 +25,8 @@ pub struct ClusterConfig {
 
 pub fn init_app_config_folder() {
     let env = EnvVariables {};
-    dotenvy::from_path(&env.get_env_file_path()).unwrap();
+    println!("Loading env variables from file : {}", &env.get_env_file_path());
+    dotenvy::from_path(&env.get_env_file_path()).expect(&format!("Can't load env variables because no file found : {}", &env.get_env_file_path()));
 }
 
 pub fn check_conf_file_exists() {

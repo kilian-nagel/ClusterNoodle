@@ -1,12 +1,15 @@
 import express from "express";
 import cors from "cors";
-console.log(process.env.DOCKER_FRONTEND_URL);
+console.log("DOCKER_AGENT_URL : ", process.env.AGENT_URL);
+console.log("FRONTEND_URL : ", process.env.FRONTEND_URL);
 const app = express();
-app.use(cors());
+app.use(cors({
+    origin: process.env.FRONTEND_URL,
+    credentials: true
+}));
 app.get("/api/docker/health", async (_req, res) => {
     try {
-        const url = process.env.DOCKER_SOCKET_AGENT_URL + "/api/docker/health";
-        console.log(url);
+        const url = process.env.AGENT_URL + "/api/docker/health";
         const health_data_raw = await fetch(url);
         console.log("health_data_raw : ", health_data_raw);
         const health_data = await health_data_raw.json();
@@ -32,7 +35,7 @@ app.get("/api/docker/health", async (_req, res) => {
 // Fetch all nodes
 app.get("/api/docker/nodes", async (_req, res) => {
     try {
-        const nodes_data_raw = await fetch(process.env["DOCKER_SOCKET_AGENT_URL"] + "/api/docker/nodes");
+        const nodes_data_raw = await fetch(process.env.AGENT_URL + "/api/docker/nodes");
         console.log("nodes_data_raw : ", nodes_data_raw);
         const nodes_data = await nodes_data_raw.json();
         console.log("nodes_data", nodes_data);
@@ -52,7 +55,7 @@ app.get("/api/docker/nodes", async (_req, res) => {
 // Fetch all services
 app.get("/api/docker/services", async (_req, res) => {
     try {
-        const services_data_raw = await fetch(process.env["DOCKER_SOCKET_AGENT_URL"] + "/api/docker/services");
+        const services_data_raw = await fetch(process.env.AGENT_URL + "/api/docker/services");
         console.log("services_data_raw : ", services_data_raw);
         const services = await services_data_raw.json();
         console.log("services : ", services);

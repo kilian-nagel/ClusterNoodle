@@ -11,8 +11,7 @@ ARG NODE_VERSION=24.10.0
 FROM node:${NODE_VERSION}-alpine
 
 # Use production node environment by default.
-ENV NODE_ENV production
-ENV DOCKER_BACKEND_BACKEND_URL "http://backend"
+
 
 WORKDIR /usr/src/app
 
@@ -30,6 +29,8 @@ RUN --mount=type=bind,source=package.json,target=package.json \
 # Run the application as a non-root user.
 USER node
 
+ENV NODE_ENV=production
+
 # Copy the rest of the source files into the image.
 COPY . .
 
@@ -37,4 +38,4 @@ COPY . .
 EXPOSE 8090
 
 # Run the application.
-CMD node dist/index.js
+CMD ["node","dist/index.js"]

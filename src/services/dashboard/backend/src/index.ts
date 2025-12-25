@@ -5,14 +5,20 @@ import cors from "cors";
 
 declare const process : {
   env: {
-    DOCKER_SOCKET_AGENT_URL: string
-    DOCKER_FRONTEND_URL: string
+    AGENT_URL: string
+    FRONTEND_URL: string
     PORT: number
   }
 }
 
+console.log("DOCKER_AGENT_URL : ", process.env.AGENT_URL);
+console.log("FRONTEND_URL : ", process.env.FRONTEND_URL);
+
 const app = express();
-app.use(cors());
+app.use(cors({
+  origin: process.env.FRONTEND_URL,
+  credentials: true
+}));
 
 
 interface DockerNode {
@@ -52,8 +58,7 @@ interface ServiceInfo {
 
 app.get("/api/docker/health", async (_req: Request, res: Response) => {
   try {
-    const url = process.env.DOCKER_SOCKET_AGENT_URL + "/api/docker/health";
-    console.log(url);
+    const url = process.env.AGENT_URL + "/api/docker/health";
     const health_data_raw = await fetch(url);
     console.log("health_data_raw : ", health_data_raw); 
     const health_data = await health_data_raw.json();
@@ -80,7 +85,7 @@ app.get("/api/docker/health", async (_req: Request, res: Response) => {
 // Fetch all nodes
 app.get("/api/docker/nodes", async (_req: Request, res: Response) => {
   try {
-    const nodes_data_raw = await fetch(process.env["DOCKER_SOCKET_AGENT_URL"] + "/api/docker/nodes");
+    const nodes_data_raw = await fetch(process.env.AGENT_URL + "/api/docker/nodes");
     console.log("nodes_data_raw : ", nodes_data_raw); 
     const nodes_data = await nodes_data_raw.json();
     console.log("nodes_data", nodes_data);
@@ -101,7 +106,7 @@ app.get("/api/docker/nodes", async (_req: Request, res: Response) => {
 app.get("/api/docker/services", async (_req: Request, res: Response) => {
   try {
 
-    const services_data_raw = await fetch(process.env["DOCKER_SOCKET_AGENT_URL"] + "/api/docker/services");
+    const services_data_raw = await fetch(process.env.AGENT_URL + "/api/docker/services");
     console.log("services_data_raw : ", services_data_raw); 
 
     const services = await services_data_raw.json();

@@ -9,7 +9,7 @@ pub fn check_existing_cluster() -> bool {
         .arg("swarm")
         .arg("ca")
         .output()
-        .unwrap();
+        .expect("Erreur durant l'execution de la commande : docker swarm ca");
 
     let output_str = String::from_utf8_lossy(&output.stderr);
     if output_str.contains("Error response from daemon") {
@@ -47,10 +47,11 @@ impl ClusterConfig {
                 std::process::exit(1);
             }
         } else {
-            ip = ip_adress.clone().unwrap();
+            ip = ip_adress.clone().expect("No IP found to init the cluster");
         }
 
         println!("Using IP: {}", ip);
+        self.ip_adress = Some(ip.clone());
 
         // Run docker swarm init with the detected IP
         let output = Command::new("docker")
@@ -205,7 +206,7 @@ pub fn destroy_cluster() -> () {
         .arg("leave")
         .arg("--force")
         .output()
-        .unwrap();
+        .expect("Failed to execute command : docker swarm leave --force");
 
     println!("{}", String::from_utf8_lossy(&output.stdout));
     if !output.status.success() {
