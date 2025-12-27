@@ -20,7 +20,7 @@ filter_usable_interfaces(){
     printf '%s\n' "${usable_interfaces[@]}"
 }
 
-# Récupère une seule interface réseau en fonction de priorité : ethernet sinon si ça n'existe, le wi-fi etc...
+# Récupère l'adresse IP d'une interface réseau en fonction de priorité : ethernet sinon si ça n'existe, le wi-fi etc...
 get_usable_interface() {
     mapfile -t usable_interfaces < <(filter_usable_interfaces | sort -u)
     
@@ -28,14 +28,14 @@ get_usable_interface() {
     for prefix in "${priorities[@]}"; do
         for iface in "${usable_interfaces[@]}"; do
             if [[ "$iface" == "$prefix"* ]]; then
-                echo "$iface"
+                ip -4 addr show "$iface" | grep -oP 'inet \K[0-9.]+' | head -n 1
                 return 0
             fi
         done
     done
 
     if (( ${#usable_interfaces[@]} > 0 )); then
-        echo "${usable_interfaces[0]}"
+        ip -4 addr show "${usable_interfaces[0]}" | grep -oP 'inet \K[0-9.]+' | head -n 1
         return 0
     fi
     return 1

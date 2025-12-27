@@ -58,6 +58,8 @@ struct DockerComposeService {
     labels: Option<Vec<String>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     depends_on: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    networks: Option<Vec<String>>
 }
 
 #[derive(Serialize, Deserialize)]
@@ -66,6 +68,7 @@ struct DockerCompose {
     services: HashMap<String, DockerComposeService>,
     #[serde(skip_serializing_if = "Option::is_none")]
     volumes: Option<HashMap<String, serde_yaml::Value>>,
+    networks: Option<HashMap<String, HashMap<String, String>>>,
 }
 
 struct DockerComposeBuilder<'a> {
@@ -111,6 +114,7 @@ impl<'a> DockerComposeBuilder<'a> {
             ]),
             environment: None,
             depends_on: None,
+            networks: None,
         };
 
         self.compose
@@ -136,6 +140,7 @@ impl<'a> DockerComposeBuilder<'a> {
                     volumes: Some(vec![conf_volume]),
                     environment: None,
                     depends_on: None,
+                    networks: None,
                 };
 
                 self.cluster_config
@@ -211,6 +216,7 @@ impl<'a> DockerComposeBuilder<'a> {
                     volumes: Some(vec![vhost_path_volume]),
                     environment: None,
                     depends_on: None,
+                    networks: None
                 };
 
                 self.cluster_config
@@ -287,6 +293,7 @@ impl<'a> DockerComposeBuilder<'a> {
                     volumes: None,
                     environment: None,
                     depends_on: None,
+                    networks: None
                 };
 
                 self.cluster_config
@@ -340,6 +347,7 @@ impl<'a> DockerComposeBuilder<'a> {
                     command: None,
                     labels: None,
                     depends_on: None,
+                    networks: None
                 };
 
                 self.cluster_config
@@ -365,6 +373,7 @@ impl<'a> DockerComposeBuilder<'a> {
                     command: None,
                     ports: None,
                     volumes: None,
+                    networks: None
                 };
 
                 self.cluster_config
@@ -408,6 +417,7 @@ impl<'a> DockerComposeBuilder<'a> {
                     command: None,
                     labels: None,
                     depends_on: None,
+                    networks: None
                 };
 
                 self.cluster_config
@@ -440,6 +450,7 @@ impl<'a> DockerComposeBuilder<'a> {
                     command: None,
                     labels: None,
                     depends_on: None,
+                    networks: None
                 };
 
                 self.cluster_config.docker_images.push("mongo:7".to_owned());
@@ -519,24 +530,44 @@ impl<'a> DockerComposeBuilder<'a> {
         let dashboard_backend_service_port = 3001;
         let dashboard_agent_service_port = 8090;
 
-        let mut dashboard_frontend_env = HashMap::new();
-        dashboard_frontend_env.insert(
-            "BACKEND_URL".to_string(),
+        let network_frontend_name="dashboard-frontend";
+        let network_backend_name="dashboard-backend";
+
+        let network_driver = HashMap::from([(String::from("driver"), String::from("overlay"))]);
+
+
+        if let Some(networks) = self.compose.networks.as_mut() {
+            networks.insert(network_frontend_name.to_string(), network_driver.clone());
+            networks.insert(network_backend_name.to_string(), network_driver.clone());
+        }
+
+    
+        let mut ip_address = "";
+        if let Some(ip) = &self.cluster_config.ip_adress {
+            ip_address = ip;
+        }
+
+        let dashboard_frontend_env = HashMap::from([(
+            String::from("BACKEND_URL"),
             format!(
                 "http://{}:{}",
-                dashboard_backend_service_name, dashboard_backend_service_port
+                ip_address, dashboard_backend_service_port
             ),
-        );
+        )]);
 
-        let mut dashboard_backend_env = HashMap::new();
-        dashboard_backend_env.insert(
-            "FRONTEND_URL".to_string(),
-            format!("http://{}:{}", dashboard_frontend_service_name, dashboard_frontend_service_port),
-        );
-        dashboard_backend_env.insert(
-            "AGENT_URL".to_string(),
-            format!("http://{}:{}", dashboard_agent_service_name, dashboard_agent_service_port),
-        );
+        let dashboard_backend_env = HashMap::from([
+            (
+                String::from("FRONTEND_URL"),
+                format!(
+                    "http://{}:{}",
+                    ip_address, dashboard_frontend_service_port
+                ),
+            ),
+            (
+                String::from("AGENT_URL"),
+                format!("http://{}:{}", ip_address, dashboard_agent_service_port),
+            ),
+        ]);
 
         // On ajoute les services et images docker.
         self.cluster_config.docker_images.push(docker_frontend_image_name.clone());
@@ -551,6 +582,7 @@ impl<'a> DockerComposeBuilder<'a> {
             volumes: None,
             environment: Some(dashboard_frontend_env),
             labels: None,
+            networks: Some(vec![network_frontend_name.to_string()])
         };
 
         self.cluster_config.docker_images.push(docker_backend_image_name.clone());
@@ -565,6 +597,7 @@ impl<'a> DockerComposeBuilder<'a> {
             volumes: None,
             environment: Some(dashboard_backend_env),
             labels: None,
+            networks: Some(vec![network_backend_name.to_string()])
         };
 
         self.cluster_config.docker_images.push(docker_agent_image_name.clone());
@@ -573,9 +606,10 @@ impl<'a> DockerComposeBuilder<'a> {
             ports: Some(vec![format!("{}:{}", dashboard_agent_service_port, dashboard_agent_service_port)]),
             depends_on: None,
             command: None,
-            volumes: None,
+            volumes: Some(vec![format!("/var/run/docker.sock:/var/run/docker.sock")]),
             environment: None,
             labels: None,
+            networks: Some(vec![network_backend_name.to_string()])
         };
 
         self.compose.services.insert(dashboard_frontend_service_name.to_string(), dashboard_frontend_service);
@@ -593,6 +627,7 @@ pub fn generate_docker_file(config: &mut ClusterConfig) -> io::Result<()> {
             version: "3.9".to_string(),
             services: HashMap::new(),
             volumes: None,
+            networks: Some(HashMap::new())
         },
     };
     let docker_file_content = docker_compose_builder.generate_docker_compose();

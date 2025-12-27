@@ -24,7 +24,7 @@ const services = ref<ServiceInfo[]>([])
 const loading = ref(false)
 const lastUpdate = ref<Date | null>(null)
 // Prefer runtime-configured BACKEND_URL injected by the container, fallback to build-time VITE_BACKEND_URL
-const runtimeBackend = (window as any).__ENV?.BACKEND_URL || (window as any).__ENV?.BACKEDN_URL
+const runtimeBackend = (window as any).__ENV?.BACKEND_URL || (window as any).__ENV?.BACKEND_URL
 const backendUrl = runtimeBackend || import.meta.env.VITE_BACKEND_URL
 console.log('Using backend URL:', backendUrl)
 

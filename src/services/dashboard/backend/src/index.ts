@@ -17,7 +17,6 @@ console.log("FRONTEND_URL : ", process.env.FRONTEND_URL);
 const app = express();
 app.use(cors({
   origin: process.env.FRONTEND_URL,
-  credentials: true
 }));
 
 
@@ -64,14 +63,13 @@ app.get("/api/docker/health", async (_req: Request, res: Response) => {
     const health_data = await health_data_raw.json();
     console.log("health_data : ", health_data); 
 
-    res.json({
+    res.status(200).json({
       connected: true,
       swarmActive: health_data.Swarm?.LocalNodeState === 'active',
       swarmNodeId: health_data.Swarm?.NodeID || null,
       swarmManagers: health_data.Swarm?.Managers || 0,
       swarmNodes: health_data.Swarm?.Nodes || 0
     });
-    res.status(200).json(health_data);
   }  catch (error: unknown) {
     console.error("Docker connection error:", error);
     const errorMessage = error instanceof Error ? error.message : String(error);
@@ -85,6 +83,7 @@ app.get("/api/docker/health", async (_req: Request, res: Response) => {
 // Fetch all nodes
 app.get("/api/docker/nodes", async (_req: Request, res: Response) => {
   try {
+    console.log(process.env.AGENT_URL + "/api/docker/nodes");
     const nodes_data_raw = await fetch(process.env.AGENT_URL + "/api/docker/nodes");
     console.log("nodes_data_raw : ", nodes_data_raw); 
     const nodes_data = await nodes_data_raw.json();
@@ -105,7 +104,7 @@ app.get("/api/docker/nodes", async (_req: Request, res: Response) => {
 // Fetch all services
 app.get("/api/docker/services", async (_req: Request, res: Response) => {
   try {
-
+      console.log(process.env.AGENT_URL + "/api/docker/services");
     const services_data_raw = await fetch(process.env.AGENT_URL + "/api/docker/services");
     console.log("services_data_raw : ", services_data_raw); 
 

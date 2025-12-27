@@ -6,6 +6,7 @@
   "license": "MIT",
   "scripts": {
     "dev": "tsx src/index.ts",
+    "build": "tsc",
     "prettify": "prettier -l --write \"**/*.js\"",
     "test": "jest"
   },

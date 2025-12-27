@@ -168,6 +168,10 @@ fn main() {
                 docker_images: vec![]
             };
 
+            // Fetch and set IP address before generating docker-compose file
+            println!("Fetching IP address...");
+            config.fetch_and_set_ip_address(ip_adress);
+
             // On ne génère le fichier doccaptker_compose uniquement si l'utilisateur n'a pas renseigné
             // le sien.
             if !docker_compose_file.is_some() && !*no_rebuild_docker_compose_file  {
@@ -179,7 +183,7 @@ fn main() {
 
             // Init le cluster
             println!("Intializing cluster...");
-            config.init(ip_adress);
+            config.init_cluster();
 
             // Création des clés et connexions en SSH aux nodes
             println!("Generating ssh keys...");

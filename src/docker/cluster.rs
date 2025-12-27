@@ -25,7 +25,7 @@ pub fn check_existing_cluster() -> bool {
 }
 
 impl ClusterConfig {
-    pub fn init(&mut self, ip_adress: &Option<String>) -> () {
+    pub fn fetch_and_set_ip_address(&mut self, ip_adress: &Option<String>) -> () {
         let env = EnvVariables {};
         let usable_ip_script_path = &env.get_usable_ip_script_path();
 
@@ -52,13 +52,16 @@ impl ClusterConfig {
 
         println!("Using IP: {}", ip);
         self.ip_adress = Some(ip.clone());
+    }
+
+    pub fn init_cluster(&mut self) -> () {
 
         // Run docker swarm init with the detected IP
         let output = Command::new("docker")
             .arg("swarm")
             .arg("init")
             .arg("--advertise-addr")
-            .arg(ip)
+            .arg(self.ip_adress.as_ref().expect("IP address not set"))
             .output()
             .expect("Failed to run docker swarm init");
 
