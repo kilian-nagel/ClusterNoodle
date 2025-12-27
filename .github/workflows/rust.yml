@@ -84,8 +84,9 @@ jobs:
           cp -r resources release-package/ || true
           cp -r scripts release-package/ || true
           cp Cargo.toml release-package/ || true
-          cp Cargo.lock release-package/ || true
           cp README.md release-package/ || true
+          cp app.env release-package/ || true
+          rm -f release-package/**/*.rs || true
           # Add any other files/folders your executable needs
           
           # Create a tar.gz archive
