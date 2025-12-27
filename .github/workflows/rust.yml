@@ -16,6 +16,10 @@ jobs:
     if: startsWith(github.ref, 'refs/tags/v') && !startsWith(github.ref, 'refs/tags/v-')
     permissions:
       contents: read
+    env:
+      DOCKER_DASHBOARD_FRONTEND_IMAGE_NAME: ${{ vars.DOCKER_DASHBOARD_FRONTEND_IMAGE_NAME }}
+      DOCKER_DASHBOARD_BACKEND_IMAGE_NAME: ${{ vars.DOCKER_DASHBOARD_BACKEND_IMAGE_NAME }}
+      DOCKER_DASHBOARD_AGENT_IMAGE_NAME: ${{ vars.DOCKER_DASHBOARD_AGENT_IMAGE_NAME }}
     
     steps:
       - uses: actions/checkout@v4
@@ -44,6 +48,27 @@ jobs:
           mv Cargo.toml Cargo.toml.orig
           VERSION="${RELEASE_TAG##*\/v}"
           sed "s|0\.0\.0-git|$VERSION|" Cargo.toml.orig >Cargo.toml
+      
+      - name: Set app env file 
+        run: |
+          get_latest_tag() {
+            local image=$1
+            curl -s "https://hub.docker.com/v2/repositories/nagelkilian/${image}/tags?page=1&page_size=1000" \
+              -H 'Content-Type: application/json' | jq -r '.results[].name' | sort -V | tail -n 1
+          }
+          
+          FRONTEND_VERSION=$(get_latest_tag "${{ env.DOCKER_DASHBOARD_FRONTEND_IMAGE_NAME }}")
+          BACKEND_VERSION=$(get_latest_tag "${{ env.DOCKER_DASHBOARD_BACKEND_IMAGE_NAME }}")
+          AGENT_VERSION=$(get_latest_tag "${{ env.DOCKER_DASHBOARD_AGENT_IMAGE_NAME }}")
+          
+          cat > app.env << EOF
+          DOCKER_DASHBOARD_FRONTEND_IMAGE_TAG=${FRONTEND_VERSION}
+          DOCKER_DASHBOARD_BACKEND_IMAGE_TAG=${BACKEND_VERSION}
+          DOCKER_DASHBOARD_AGENT_IMAGE_TAG=${AGENT_VERSION}
+          EOF
+          
+          echo "env file content : "
+          cat app.env
     
       - name: Build
         run: cargo build --release --verbose
