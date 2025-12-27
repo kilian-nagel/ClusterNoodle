@@ -58,7 +58,7 @@ pub fn copy_ssh_key_to_machines(config: &config::ClusterConfig) {
                 }
             }
             Ok(None) => {
-                println!("ssh-copy-id timed out after 5 seconds for {}", target);
+                println!("ssh-copy-id timed out after 5 seconds for {}", node_config.ip);
             }
             Err(e) => {
                 println!("Failed to execute: {}", e);
@@ -85,15 +85,15 @@ fn check_and_install_tools(node_config: &NodeConfig) {
     match command::run_with_timeout(docker_check, Duration::from_secs(100)) {
         Ok(Some(output)) => {
             if output.status.success() {
-                println!("Docker is already installed on {}", target);
+                println!("Docker is already installed on {}", node_config.ip);
             } else {
-                println!("Docker is not installed on {}. Installing...", target);
+                println!("Docker is not installed on {}. Installing...", node_config.ip);
                 install_docker(node_config, &target);
             }
         }
-        Ok(None) => println!("Timeout while checking Docker installation on {}", target),
+        Ok(None) => println!("Timeout while checking Docker installation on {}", node_config.ip),
         Err(e) => {
-            println!("Error checking Docker installation on {}: {}", target, e);
+            println!("Error checking Docker installation on {}: {}", node_config.ip, e);
             install_docker(node_config, &target);
         }
     }
@@ -113,15 +113,15 @@ fn check_and_install_tools(node_config: &NodeConfig) {
     match command::run_with_timeout(sshpass_check, Duration::from_secs(100)) {
         Ok(Some(output)) => {
             if output.status.success() {
-                println!("sshpass is already installed on {}", target);
+                println!("sshpass is already installed on {}", node_config.ip);
             } else {
-                println!("sshpass is not installed on {}. Installing...", target);
+                println!("sshpass is not installed on {}. Installing...", node_config.ip);
                 install_sshpass(node_config, &target);
             }
         }
-        Ok(None) => println!("Timeout while checking sshpass installation on {}", target),
+        Ok(None) => println!("Timeout while checking sshpass installation on {}", node_config.ip),
         Err(e) => {
-            println!("Error checking sshpass installation on {}: {}", target, e);
+            println!("Error checking sshpass installation on {}: {}", node_config.ip, e);
             install_sshpass(node_config, &target);
         }
     }
@@ -143,17 +143,17 @@ fn install_docker(node_config: &NodeConfig, target: &str) {
     match command::run_with_timeout(cmd, Duration::from_secs(1000)) {
         Ok(Some(output)) => {
             if output.status.success() {
-                println!("Docker installed on {}", target);
+                println!("Docker installed on {}", node_config.ip);
             } else {
                 println!(
                     "Docker installation failed on {}: {}",
-                    target,
+                    node_config.ip,
                     String::from_utf8_lossy(&output.stderr)
                 );
             }
         }
-        Ok(None) => println!("Timeout during Docker installation on {}", target),
-        Err(e) => println!("Docker installation failed on {}: {}", target, e),
+        Ok(None) => println!("Timeout during Docker installation on {}", node_config.ip),
+        Err(e) => println!("Docker installation failed on {}: {}", node_config.ip, e),
     }
 }
 
@@ -173,17 +173,17 @@ fn install_sshpass(node_config: &NodeConfig, target: &str) {
     match command::run_with_timeout(cmd, Duration::from_secs(1000)) {
         Ok(Some(output)) => {
             if output.status.success() {
-                println!("sshpass installed on {}", target);
+                println!("sshpass installed on {}", node_config.ip);
             } else {
                 println!(
                     "sshpass installation failed on {}: {}",
-                    target,
+                    node_config.ip,
                     String::from_utf8_lossy(&output.stderr)
                 );
             }
         }
-        Ok(None) => println!("Timeout during sshpass installation on {}", target),
-        Err(e) => println!("sshpass installation failed on {}: {}", target, e),
+        Ok(None) => println!("Timeout during sshpass installation on {}", node_config.ip),
+        Err(e) => println!("sshpass installation failed on {}: {}", node_config.ip, e),
     }
 }
 

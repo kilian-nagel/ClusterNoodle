@@ -4,6 +4,9 @@ BIN_PATH="/opt/ClusterNoodle/ClusterNoodle"
 BIN_SYMLINK_PATH="/usr/local/bin/ClusterNoodle"
 CONFIG_PATH="$HOME/.config/ClusterNoodle"
 CONFIG_FILE_PATH="$CONFIG_PATH/conf.cluster_noodle"
+EXISTING_ENV_FILE_PATH="$CONFIG_PATH/app.env"
+NEW_ENV_FILE_PATH="$APP_PATH/app.env"
+SCRIPTS_PATH="$APP_PATH/scripts"
 TAR_PATH="/tmp/ClusterNoodle.tar.gz"
 
 echo "Checking if docker is installed..."
@@ -30,8 +33,10 @@ sudo mkdir -p $CONFIG_PATH
 
 if ! [ -z "$CONFIG_FILE_PATH" ] && ! [ -e "$CONFIG_FILE_PATH" ]; then
     sudo touch "$CONFIG_FILE_PATH"
-    sudo touch "$CONFIG_PATH/app.env"
 fi
+
+
+
 sudo chown -R "$(whoami)" $CONFIG_PATH
 
 echo "Setting up executable..."
@@ -39,6 +44,13 @@ sudo chmod +x "$BIN_PATH"
 
 if ! [ -z "$BIN_SYMLINK_PATH" ] && ! [ -e "$BIN_SYMLINK_PATH" ]; then
     sudo ln -s /opt/ClusterNoodle/ClusterNoodle "$BIN_SYMLINK_PATH"
+fi
+
+echo "Setting up environment variables..."
+if [ ! -f "$EXISTING_ENV_FILE_PATH" ]; then
+    sudo cp "$NEW_ENV_FILE_PATH" "$EXISTING_ENV_FILE_PATH"
+else 
+    bash "$SCRIPTS_PATH/merge_env_files.sh" "$EXISTING_ENV_FILE_PATH" "$NEW_ENV_FILE_PATH"
 fi
 
 rm -f "$TAR_PATH"

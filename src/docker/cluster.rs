@@ -1,7 +1,6 @@
-use crate::{ClusterConfig, docker};
+use crate::ClusterConfig;
 use crate::utils::command;
 use crate::utils::envVariables::EnvVariables;
-use std::path;
 use std::process::Command;
 use std::time::Duration;
 
@@ -10,7 +9,7 @@ pub fn check_existing_cluster() -> bool {
         .arg("swarm")
         .arg("ca")
         .output()
-        .unwrap();
+        .expect("Erreur durant l'execution de la commande : docker swarm ca");
 
     let output_str = String::from_utf8_lossy(&output.stderr);
     if output_str.contains("Error response from daemon") {
@@ -26,7 +25,7 @@ pub fn check_existing_cluster() -> bool {
 }
 
 impl ClusterConfig {
-    pub fn init(&mut self, ip_adress: &Option<String>) -> () {
+    pub fn fetch_and_set_ip_address(&mut self, ip_adress: &Option<String>) -> () {
         let env = EnvVariables {};
         let usable_ip_script_path = &env.get_usable_ip_script_path();
 
@@ -48,17 +47,21 @@ impl ClusterConfig {
                 std::process::exit(1);
             }
         } else {
-            ip = ip_adress.clone().unwrap();
+            ip = ip_adress.clone().expect("No IP found to init the cluster");
         }
 
         println!("Using IP: {}", ip);
+        self.ip_adress = Some(ip.clone());
+    }
+
+    pub fn init_cluster(&mut self) -> () {
 
         // Run docker swarm init with the detected IP
         let output = Command::new("docker")
             .arg("swarm")
             .arg("init")
             .arg("--advertise-addr")
-            .arg(ip)
+            .arg(self.ip_adress.as_ref().expect("IP address not set"))
             .output()
             .expect("Failed to run docker swarm init");
 
@@ -98,17 +101,17 @@ impl ClusterConfig {
             match command::run_with_timeout(cmd, Duration::from_secs(1000)) {
                 Ok(Some(output)) => {
                     if output.status.success() {
-                        println!("Docker installed on {}", target);
+                        println!("Docker installed on {}", node_config.ip);
                     } else {
                         println!(
                             "Install failed on {}: {}",
-                            target,
+                            node_config.ip,
                             String::from_utf8_lossy(&output.stderr)
                         );
                     }
                 }
-                Ok(None) => println!("Timeout for {}", target),
-                Err(e) => println!("Execution failed on {}: {}", target, e),
+                Ok(None) => println!("Timeout for {}", node_config.ip),
+                Err(e) => println!("Execution failed on {}: {}", node_config.ip, e),
             }
         }
     }
@@ -154,17 +157,17 @@ impl ClusterConfig {
                 Ok(Some(output)) => {
                     println!("{}", String::from_utf8_lossy(&output.stdout));
                     if output.status.success() {
-                        println!("{} joined the cluster", target);
+                        println!("{} joined the cluster", node_config.ip);
                     } else {
                         println!(
                             "{} failed to join the cluster : {}",
-                            target,
+                            node_config.ip,
                             String::from_utf8_lossy(&output.stderr)
                         );
                     }
                 }
-                Ok(None) => println!("Timeout for execution of {} on : {}", command, target),
-                Err(e) => println!("Execution of {} failed on {} : {}", command, target, e),
+                Ok(None) => println!("Timeout for execution of {} on : {}", command, node_config.ip),
+                Err(e) => println!("Execution of {} failed on {} : {}", command, node_config.ip, e),
             }
         }
     }
@@ -184,17 +187,17 @@ impl ClusterConfig {
                 Ok(Some(output)) => {
                     println!("{}", String::from_utf8_lossy(&output.stdout));
                     if output.status.success() {
-                        println!("{} left the cluster", target);
+                        println!("{} left the cluster", node_config.ip);
                     } else {
                         println!(
                             "{} failed to leave the cluster : {}",
-                            target,
+                            node_config.ip,
                             String::from_utf8_lossy(&output.stderr)
                         );
                     }
                 }
-                Ok(None) => println!("Timeout for execution of {} on : {}", command, target),
-                Err(e) => println!("Execution of {} failed on {} : {}", command, target, e),
+                Ok(None) => println!("Timeout for execution of {} on : {}", command, node_config.ip),
+                Err(e) => println!("Execution of {} failed on {} : {}", command, node_config.ip, e),
             }
         }
     }
@@ -206,7 +209,7 @@ pub fn destroy_cluster() -> () {
         .arg("leave")
         .arg("--force")
         .output()
-        .unwrap();
+        .expect("Failed to execute command : docker swarm leave --force");
 
     println!("{}", String::from_utf8_lossy(&output.stdout));
     if !output.status.success() {
@@ -215,10 +218,10 @@ pub fn destroy_cluster() -> () {
     }
 }
 
-pub fn deploy_services(docker_file_path_param: Option<&str>) {
+pub fn deploy_services() {
     // Si un chemin a été renseigné on l'utilise sinon utilise celui par défaut.
     let env = EnvVariables {};
-    let mut docker_file_path = String::from(env.get_docker_file_path());
+    let docker_file_path = String::from(env.get_docker_file_path());
 
     let mut cmd = Command::new("docker");
     cmd.arg("stack")

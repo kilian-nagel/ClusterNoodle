@@ -1,0 +1,44 @@
+version: '3.9'
+services:
+  dashboard-backend:
+    image: nagelkilian/clusternoodle-dashboard-backend:v0.3.0
+    ports:
+    - 3001:3001
+    environment:
+      AGENT_URL: http://dashboard-agent:8090
+      FRONTEND_URL: http://localhost:8080
+    depends_on:
+    - dashboard-agent
+    networks:
+      - dashboard-backend
+      - dashboard-frontend
+  dashboard-frontend:
+    image: nagelkilian/clusternoodle-dashboard-frontend:v0.3.0
+    ports:
+    - 8080:8080
+    environment:
+      BACKEND_URL: http://localhost:3001
+    depends_on:
+    - dashboard-backend
+    networks:
+      - dashboard-frontend
+  dashboard-agent:
+    image: nagelkilian/clusternoodle-dashboard-agent:v0.3.0
+    volumes: 
+    - /var/run/docker.sock:/var/run/docker.sock
+    ports:
+    - 8090:8090
+    networks:
+      - dashboard-backend
+  nginx:
+    image: trafex/php-nginx:3.9.0
+    ports:
+    - 80:8080
+    volumes:
+    - /opt/ClusterNoodle/src/services/nginx/nginx.conf:/etc/nginx/conf.d/server.conf:ro
+
+networks:
+  dashboard-frontend:
+    driver: bridge
+  dashboard-backend:
+    driver: bridge

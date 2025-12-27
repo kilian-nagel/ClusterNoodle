@@ -91,6 +91,9 @@ struct Services {
 
     #[arg(long)]
     traefik: bool,
+
+    #[arg(long)]
+    dashboard: bool,
 }
 
 fn main() {
@@ -155,6 +158,7 @@ fn main() {
                     server: services.server.clone(),
                     database: services.database.clone(),
                     traefik: services.traefik.clone(),
+                    dashboard: services.dashboard.clone()
                 },
                 ip_adress: ip_adress.clone(),
                 project_folder_path: project_folder_path.clone(),
@@ -163,6 +167,10 @@ fn main() {
                 ssl_certificate_path_crt: ssl_certificate_path_crt.clone(),
                 docker_images: vec![]
             };
+
+            // Fetch and set IP address before generating docker-compose file
+            println!("Fetching IP address...");
+            config.fetch_and_set_ip_address(ip_adress);
 
             // On ne génère le fichier doccaptker_compose uniquement si l'utilisateur n'a pas renseigné
             // le sien.
@@ -175,7 +183,7 @@ fn main() {
 
             // Init le cluster
             println!("Intializing cluster...");
-            config.init(ip_adress);
+            config.init_cluster();
 
             // Création des clés et connexions en SSH aux nodes
             println!("Generating ssh keys...");
@@ -198,7 +206,7 @@ fn main() {
 
             // Déploiement des services docker
             println!("Deploying services to the cluster...");
-            cluster::deploy_services(docker_compose_file.as_deref());
+            cluster::deploy_services();
         }
         Some(Commands::Stop {}) => {
             let env = EnvVariables {};
@@ -213,6 +221,7 @@ fn main() {
                     database: None,
                     server: None,
                     traefik: false,
+                    dashboard: false
                 },
                 project_folder_path: Some(String::from("")),
                 project_entry_file_path: Some(String::from("")),
