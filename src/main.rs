@@ -11,6 +11,11 @@ mod utils {
     pub mod ssh;
 }
 
+mod models {
+    pub mod network;
+    pub mod service;
+}
+
 mod services {
     pub mod services;
     pub mod apache {
